@@ -1,0 +1,72 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap');
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #f5f5f5;
+  --card: #111111;
+  --card-foreground: #f5f5f5;
+  --border: #1e1e1e;
+  --muted: #71717a;
+  --primary: #7c3aed;
+  --primary-foreground: #ffffff;
+  --accent: #06b6d4;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --radius: 0.75rem;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #111; }
+::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+
+/* Gradient text utility */
+.gradient-text {
+  background: linear-gradient(135deg, #7c3aed, #06b6d4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gradient button */
+.btn-gradient {
+  background: linear-gradient(135deg, #7c3aed, #06b6d4);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-gradient:hover { opacity: 0.9; }
+.btn-gradient:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.2s ease-out; }
+
+/* KDS ticket slide */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.slide-in { animation: slideIn 0.2s ease-out; }
