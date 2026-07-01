@@ -48,14 +48,14 @@ export default function InventoryPage() {
   return (
     <div className="p-6 max-w-5xl">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold gradient-text font-mono">Inventory</h1>
-        <button onClick={() => setShowForm(true)} className="btn-gradient px-4 py-2 rounded-lg text-sm font-semibold">
+        <h1 className="text-xl font-bold font-display" style={{ color: "var(--primary)" }}>Inventory</h1>
+        <button onClick={() => setShowForm(true)} className="btn-gradient px-4 py-2 text-sm font-semibold">
           + Add Item
         </button>
       </div>
 
       {lowStock.length > 0 && (
-        <div className="mb-4 p-3 rounded-xl text-sm" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}>
+        <div className="mb-4 p-3 text-sm" style={{ background: "var(--danger-bg)", color: "var(--danger)", borderRadius: "var(--radius-lg)" }}>
           ⚠ {lowStock.length} item{lowStock.length !== 1 ? "s" : ""} below reorder threshold: {lowStock.map((i: any) => i.name).join(", ")}
         </div>
       )}
@@ -65,40 +65,40 @@ export default function InventoryPage() {
         placeholder="Search inventory..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full px-4 py-2 rounded-xl text-sm mb-4"
-        style={{ background: "#111", border: "1px solid #1e1e1e", color: "#f5f5f5" }}
+        className="w-full px-4 py-2 text-sm mb-4"
+        style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--foreground)", borderRadius: "var(--radius-lg)" }}
       />
 
-      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #1e1e1e" }}>
+      <div className="overflow-hidden" style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ background: "#080808", borderBottom: "1px solid #1e1e1e" }}>
+            <tr style={{ background: "var(--surface-container-low)", borderBottom: "1px solid var(--border)" }}>
               {["Item", "Category", "Qty", "Unit", "Threshold", "Supplier", ""].map((h) => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-mono uppercase tracking-widest" style={{ color: "#71717a" }}>{h}</th>
+                <th key={h} className="px-4 py-3 text-left text-xs uppercase tracking-widest font-bold" style={{ color: "var(--muted-2)" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.map((item: any, i: number) => (
-              <tr key={item.id} style={{ background: i % 2 === 0 ? "#111" : "#0d0d0d", borderBottom: "1px solid #1a1a1a" }}>
+              <tr key={item.id} style={{ background: i % 2 === 0 ? "#ffffff" : "var(--surface-container-low)", borderBottom: "1px solid var(--border)" }}>
                 <td className="px-4 py-3 font-medium">{item.name}</td>
-                <td className="px-4 py-3 text-xs" style={{ color: "#71717a" }}>{item.category}</td>
-                <td className="px-4 py-3 font-mono" style={{ color: isLow(item) ? "#ef4444" : "#22c55e" }}>
+                <td className="px-4 py-3 text-xs" style={{ color: "var(--muted-2)" }}>{item.category}</td>
+                <td className="px-4 py-3 font-semibold" style={{ color: isLow(item) ? "var(--danger)" : "var(--success)" }}>
                   {parseFloat(item.quantity).toFixed(2)}
                 </td>
-                <td className="px-4 py-3 text-xs" style={{ color: "#71717a" }}>{item.unit}</td>
-                <td className="px-4 py-3 text-xs font-mono" style={{ color: "#71717a" }}>
+                <td className="px-4 py-3 text-xs" style={{ color: "var(--muted-2)" }}>{item.unit}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: "var(--muted-2)" }}>
                   {item.reorderThreshold ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-xs" style={{ color: "#71717a" }}>{item.supplier ?? "—"}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: "var(--muted-2)" }}>{item.supplier ?? "—"}</td>
                 <td className="px-4 py-3">
                   <button
                     onClick={() => {
                       const q = prompt(`New quantity for ${item.name} (currently ${item.quantity} ${item.unit}):`);
                       if (q !== null && !isNaN(parseFloat(q))) update.mutate({ id: item.id, quantity: q });
                     }}
-                    className="text-xs px-2 py-1 rounded"
-                    style={{ background: "#1e1e1e", border: "1px solid #2a2a2a", color: "#71717a", cursor: "pointer" }}
+                    className="text-xs px-2 py-1"
+                    style={{ background: "var(--surface-container-low)", border: "1px solid var(--border-strong)", color: "var(--muted)", cursor: "pointer", borderRadius: "var(--radius)" }}
                   >
                     Update
                   </button>
@@ -108,15 +108,15 @@ export default function InventoryPage() {
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <div className="text-center py-8 text-sm" style={{ color: "#71717a" }}>No inventory items found</div>
+          <div className="text-center py-8 text-sm" style={{ color: "var(--muted-2)" }}>No inventory items found</div>
         )}
       </div>
 
       {showForm && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4"
-          style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)" }}>
-          <div className="w-full max-w-md rounded-2xl p-6" style={{ background: "#111", border: "1px solid #1e1e1e" }}>
-            <h2 className="text-lg font-bold font-mono mb-4 gradient-text">Add Inventory Item</h2>
+          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
+          <div className="w-full max-w-md p-6" style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
+            <h2 className="text-lg font-bold font-display mb-4" style={{ color: "var(--primary)" }}>Add Inventory Item</h2>
             <div className="space-y-3">
               {[
                 { key: "name", label: "Item Name", required: true },
@@ -128,24 +128,24 @@ export default function InventoryPage() {
                 { key: "category", label: "Category" },
               ].map(({ key, label, required }) => (
                 <div key={key}>
-                  <label className="block text-xs font-mono uppercase tracking-widest mb-1" style={{ color: "#71717a" }}>{label}</label>
+                  <label className="block text-xs uppercase tracking-widest mb-1 font-bold" style={{ color: "var(--muted)" }}>{label}</label>
                   <input
                     type="text"
                     value={(form as any)[key]}
                     onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                     required={required}
-                    className="w-full px-3 py-2 rounded-lg text-sm"
-                    style={{ background: "#1e1e1e", border: "1px solid #2a2a2a", color: "#f5f5f5" }}
+                    className="w-full px-3 py-2 text-sm"
+                    style={{ background: "#fff", border: "1px solid var(--border-strong)", color: "var(--foreground)", borderRadius: "var(--radius)" }}
                   />
                 </div>
               ))}
             </div>
             <div className="flex gap-2 mt-4">
               <button onClick={() => setShowForm(false)}
-                className="flex-1 py-2 rounded-lg text-sm"
-                style={{ background: "#1e1e1e", border: "none", color: "#71717a", cursor: "pointer" }}>Cancel</button>
+                className="flex-1 py-2 text-sm"
+                style={{ background: "var(--surface-container-low)", border: "none", color: "var(--muted-2)", cursor: "pointer", borderRadius: "var(--radius)" }}>Cancel</button>
               <button onClick={() => create.mutate()} disabled={create.isPending}
-                className="flex-1 py-2 rounded-lg text-sm font-semibold btn-gradient">
+                className="flex-1 py-2 text-sm font-semibold btn-gradient">
                 {create.isPending ? "Saving..." : "Add Item"}
               </button>
             </div>

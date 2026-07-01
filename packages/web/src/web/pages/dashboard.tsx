@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 
-function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color: string }) {
+function StatCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: boolean }) {
   return (
-    <div className="rounded-xl p-5" style={{ background: "#111", border: "1px solid #1e1e1e" }}>
-      <div className="text-xs font-mono uppercase tracking-widest mb-2" style={{ color: "#71717a" }}>{label}</div>
-      <div className="text-3xl font-bold font-mono" style={{ color }}>{value}</div>
-      {sub && <div className="text-xs mt-1" style={{ color: "#71717a" }}>{sub}</div>}
+    <div className="p-5" style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
+      <div className="text-xs uppercase tracking-widest mb-2 font-bold" style={{ color: "var(--muted-2)" }}>{label}</div>
+      <div className="text-3xl font-bold font-display" style={{ color: accent ? "var(--accent-strong)" : "var(--primary)" }}>{value}</div>
+      {sub && <div className="text-xs mt-1" style={{ color: "var(--muted-2)" }}>{sub}</div>}
     </div>
   );
 }
@@ -49,37 +49,37 @@ export default function DashboardPage() {
   return (
     <div className="p-6 max-w-5xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold gradient-text font-mono">Dashboard</h1>
-        <div className="text-sm mt-1" style={{ color: "#71717a" }}>
+        <h1 className="text-2xl font-bold font-display" style={{ color: "var(--primary)" }}>Dashboard</h1>
+        <div className="text-sm mt-1" style={{ color: "var(--muted-2)" }}>
           {new Date().toLocaleDateString("en-MX", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Active Orders" value={orders.length} color="#7c3aed" />
-        <StatCard label="Pending" value={pending} color="#f59e0b" />
-        <StatCard label="In Kitchen" value={inProgress} color="#06b6d4" />
-        <StatCard label="Ready" value={ready} color="#22c55e" />
+        <StatCard label="Active Orders" value={orders.length} />
+        <StatCard label="Pending" value={pending} accent />
+        <StatCard label="In Kitchen" value={inProgress} />
+        <StatCard label="Ready" value={ready} />
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
         {/* Today's reservations */}
-        <div className="rounded-xl p-5" style={{ background: "#111", border: "1px solid #1e1e1e" }}>
-          <div className="text-xs font-mono uppercase tracking-widest mb-3" style={{ color: "#71717a" }}>
+        <div className="p-5" style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
+          <div className="text-xs uppercase tracking-widest mb-3 font-bold" style={{ color: "var(--muted-2)" }}>
             Today's Reservations ({reservations.length})
           </div>
           {reservations.length === 0 ? (
-            <div className="text-sm" style={{ color: "#3f3f3f" }}>No reservations today</div>
+            <div className="text-sm" style={{ color: "var(--muted-2)" }}>No reservations today</div>
           ) : (
             <div className="space-y-2">
               {reservations.slice(0, 5).map((r: any) => (
                 <div key={r.id} className="flex items-center justify-between text-sm">
                   <div>
                     <span className="font-medium">{r.guestName}</span>
-                    <span className="ml-2 text-xs" style={{ color: "#71717a" }}>party of {r.partySize}</span>
+                    <span className="ml-2 text-xs" style={{ color: "var(--muted-2)" }}>party of {r.partySize}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs" style={{ color: "#06b6d4" }}>{r.time}</span>
+                    <span className="text-xs font-medium" style={{ color: "var(--accent-strong)" }}>{r.time}</span>
                     <StatusBadge status={r.status} />
                   </div>
                 </div>
@@ -89,18 +89,18 @@ export default function DashboardPage() {
         </div>
 
         {/* Low stock */}
-        <div className="rounded-xl p-5" style={{ background: "#111", border: "1px solid #1e1e1e" }}>
-          <div className="text-xs font-mono uppercase tracking-widest mb-3" style={{ color: "#71717a" }}>
+        <div className="p-5" style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
+          <div className="text-xs uppercase tracking-widest mb-3 font-bold" style={{ color: "var(--muted-2)" }}>
             Low Stock Alerts ({lowStockItems.length})
           </div>
           {lowStockItems.length === 0 ? (
-            <div className="text-sm" style={{ color: "#22c55e" }}>✓ All stocked up</div>
+            <div className="text-sm" style={{ color: "var(--success)" }}>✓ All stocked up</div>
           ) : (
             <div className="space-y-2">
               {lowStockItems.slice(0, 6).map((i: any) => (
                 <div key={i.id} className="flex items-center justify-between text-sm">
                   <span className="font-medium">{i.name}</span>
-                  <span className="font-mono text-xs" style={{ color: "#ef4444" }}>
+                  <span className="text-xs font-medium" style={{ color: "var(--danger)" }}>
                     {i.quantity} {i.unit} left
                   </span>
                 </div>
@@ -112,20 +112,20 @@ export default function DashboardPage() {
 
       {/* Active orders list */}
       {orders.length > 0 && (
-        <div className="rounded-xl p-5 mt-4" style={{ background: "#111", border: "1px solid #1e1e1e" }}>
-          <div className="text-xs font-mono uppercase tracking-widest mb-3" style={{ color: "#71717a" }}>
+        <div className="p-5 mt-4" style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
+          <div className="text-xs uppercase tracking-widest mb-3 font-bold" style={{ color: "var(--muted-2)" }}>
             Active Orders
           </div>
           <div className="space-y-2">
             {orders.map((o: any) => (
               <div key={o.id} className="flex items-center justify-between text-sm py-1"
-                style={{ borderBottom: "1px solid #1a1a1a" }}>
+                style={{ borderBottom: "1px solid var(--border)" }}>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-xs" style={{ color: "#71717a" }}>#{o.id}</span>
+                  <span className="text-xs" style={{ color: "var(--muted-2)" }}>#{o.id}</span>
                   <span>Table {o.tableNumber ?? "—"}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-sm" style={{ color: "#7c3aed" }}>
+                  <span className="text-sm font-semibold" style={{ color: "var(--primary)" }}>
                     ${parseFloat(o.total).toFixed(2)}
                   </span>
                   <StatusBadge status={o.status} />
@@ -141,20 +141,19 @@ export default function DashboardPage() {
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, { bg: string; text: string }> = {
-    pending: { bg: "rgba(245,158,11,0.15)", text: "#f59e0b" },
-    in_progress: { bg: "rgba(124,58,237,0.15)", text: "#7c3aed" },
-    ready: { bg: "rgba(34,197,94,0.15)", text: "#22c55e" },
-    served: { bg: "rgba(6,182,212,0.15)", text: "#06b6d4" },
-    paid: { bg: "rgba(34,197,94,0.1)", text: "#22c55e" },
-    confirmed: { bg: "rgba(6,182,212,0.15)", text: "#06b6d4" },
-    cancelled: { bg: "rgba(239,68,68,0.15)", text: "#ef4444" },
-    no_show: { bg: "rgba(239,68,68,0.15)", text: "#ef4444" },
-    seated: { bg: "rgba(34,197,94,0.15)", text: "#22c55e" },
+    pending: { bg: "var(--warning-bg)", text: "var(--warning)" },
+    in_progress: { bg: "#eeeeee", text: "#1a1c1c" },
+    ready: { bg: "var(--success-bg)", text: "var(--success)" },
+    served: { bg: "#fff3d6", text: "#735c00" },
+    paid: { bg: "var(--success-bg)", text: "var(--success)" },
+    confirmed: { bg: "#fff3d6", text: "#735c00" },
+    cancelled: { bg: "var(--danger-bg)", text: "var(--danger)" },
+    no_show: { bg: "var(--danger-bg)", text: "var(--danger)" },
+    seated: { bg: "var(--success-bg)", text: "var(--success)" },
   };
-  const c = colors[status] ?? { bg: "rgba(113,113,122,0.15)", text: "#71717a" };
+  const c = colors[status] ?? { bg: "var(--surface-container-low)", text: "var(--muted-2)" };
   return (
-    <span className="text-xs px-2 py-0.5 rounded-full font-mono capitalize"
-      style={{ background: c.bg, color: c.text }}>
+    <span className="text-xs px-2 py-0.5 font-medium capitalize" style={{ background: c.bg, color: c.text, borderRadius: "9999px" }}>
       {status.replace("_", " ")}
     </span>
   );

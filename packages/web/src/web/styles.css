@@ -1,23 +1,41 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #0a0a0a;
-  --foreground: #f5f5f5;
-  --card: #111111;
-  --card-foreground: #f5f5f5;
-  --border: #1e1e1e;
-  --muted: #71717a;
-  --primary: #7c3aed;
+  /* Invisible Excellence — Matte & Metallic */
+  --background: #f9f9f9;
+  --foreground: #1a1c1c;
+  --card: #ffffff;
+  --card-foreground: #1a1c1c;
+  --border: #e0e0e0;
+  --border-strong: #c4c7c7;
+  --muted: #444748;
+  --muted-2: #747878;
+
+  --primary: #000000;       /* Matte Charcoal */
   --primary-foreground: #ffffff;
-  --accent: #06b6d4;
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --radius: 0.75rem;
+  --charcoal-container: #1c1b1b;
+
+  --accent: #fed65b;         /* Ambient Gold */
+  --accent-foreground: #735c00;
+  --accent-strong: #735c00;
+
+  --success: #1e7d3c;
+  --success-bg: #e3f5e9;
+  --warning: #8a6100;
+  --warning-bg: #fff3d6;
+  --danger: #ba1a1a;
+  --danger-bg: #ffdad6;
+
+  --surface-container: #eeeeee;
+  --surface-container-low: #f3f3f3;
+  --surface-container-high: #e8e8e8;
+
+  --radius: 0.25rem;
+  --radius-lg: 0.5rem;
 }
 
 * { box-sizing: border-box; }
@@ -25,37 +43,53 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   margin: 0;
   -webkit-font-smoothing: antialiased;
 }
 
-.font-mono { font-family: 'JetBrains Mono', monospace; }
+.font-display { font-family: 'Sora', sans-serif; }
+.font-mono { font-family: 'Hanken Grotesk', sans-serif; letter-spacing: 0.03em; }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #111; }
-::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+::-webkit-scrollbar-track { background: #f3f3f3; }
+::-webkit-scrollbar-thumb { background: #c4c7c7; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #a0a3a3; }
 
-/* Gradient text utility */
+/* Charcoal text treatment (replaces old gradient-text) */
 .gradient-text {
-  background: linear-gradient(135deg, #7c3aed, #06b6d4);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-family: 'Sora', sans-serif;
+  color: var(--primary);
+  font-weight: 700;
 }
 
-/* Gradient button */
+/* Primary button — Matte Charcoal */
 .btn-gradient {
-  background: linear-gradient(135deg, #7c3aed, #06b6d4);
-  color: white;
+  background: var(--primary);
+  color: var(--primary-foreground);
   border: none;
   cursor: pointer;
-  transition: opacity 0.15s;
+  border-radius: var(--radius);
+  transition: opacity 0.15s, transform 0.1s;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-weight: 600;
 }
-.btn-gradient:hover { opacity: 0.9; }
-.btn-gradient:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-gradient:hover { opacity: 0.85; }
+.btn-gradient:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Premium/Gold button — for revenue actions */
+.btn-gold {
+  background: var(--accent);
+  color: var(--accent-strong);
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius);
+  transition: opacity 0.15s;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-weight: 700;
+}
+.btn-gold:hover { opacity: 0.85; }
 
 /* Fade in animation */
 @keyframes fadeIn {

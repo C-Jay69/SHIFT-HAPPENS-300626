@@ -43,9 +43,9 @@ export default function ShiftBotPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-4" style={{ borderBottom: "1px solid #1e1e1e" }}>
-        <h1 className="text-xl font-bold gradient-text font-mono">ShiftBot 🤖</h1>
-        <div className="text-xs mt-0.5" style={{ color: "#71717a" }}>
+      <div className="p-4" style={{ borderBottom: "1px solid var(--border)" }}>
+        <h1 className="text-xl font-bold font-display" style={{ color: "var(--primary)" }}>ShiftBot 🤖</h1>
+        <div className="text-xs mt-0.5" style={{ color: "var(--muted-2)" }}>
           AI Operations Assistant · powered by Gemini · has live restaurant data
         </div>
       </div>
@@ -55,11 +55,11 @@ export default function ShiftBotPage() {
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
             <div
-              className="max-w-lg px-4 py-3 rounded-2xl text-sm leading-relaxed"
+              className="max-w-lg px-4 py-3 text-sm leading-relaxed"
               style={
                 msg.role === "user"
-                  ? { background: "linear-gradient(135deg,#7c3aed,#06b6d4)", color: "#fff", borderRadius: "18px 18px 4px 18px" }
-                  : { background: "#111", border: "1px solid #1e1e1e", color: "#f5f5f5", borderRadius: "18px 18px 18px 4px" }
+                  ? { background: "var(--primary)", color: "#fff", borderRadius: "18px 18px 4px 18px" }
+                  : { background: "var(--card)", border: "1px solid var(--border)", color: "var(--foreground)", borderRadius: "18px 18px 18px 4px" }
               }
               dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }}
             />
@@ -67,7 +67,7 @@ export default function ShiftBotPage() {
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="px-4 py-3 rounded-2xl text-sm" style={{ background: "#111", border: "1px solid #1e1e1e", color: "#71717a" }}>
+            <div className="px-4 py-3 text-sm" style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--muted-2)", borderRadius: "18px 18px 18px 4px" }}>
               <span className="animate-pulse">ShiftBot is thinking...</span>
             </div>
           </div>
@@ -76,18 +76,18 @@ export default function ShiftBotPage() {
       </div>
 
       {/* Input */}
-      <form onSubmit={sendMessage} className="p-4" style={{ borderTop: "1px solid #1e1e1e" }}>
+      <form onSubmit={sendMessage} className="p-4" style={{ borderTop: "1px solid var(--border)" }}>
         <div className="flex gap-2">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask ShiftBot anything about the restaurant..."
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm"
-            style={{ background: "#111", border: "1px solid #1e1e1e", color: "#f5f5f5" }}
+            className="flex-1 px-4 py-2.5 text-sm"
+            style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--foreground)", borderRadius: "var(--radius-lg)" }}
             disabled={loading}
           />
           <button type="submit" disabled={loading || !input.trim()}
-            className="px-5 py-2.5 rounded-xl font-semibold text-sm btn-gradient">
+            className="px-5 py-2.5 font-semibold text-sm btn-gradient" style={{ borderRadius: "var(--radius-lg)" }}>
             Send
           </button>
         </div>

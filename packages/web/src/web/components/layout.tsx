@@ -26,27 +26,27 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: "#0a0a0a" }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: "var(--background)" }}>
       {/* Sidebar */}
       <aside
         className="flex flex-col flex-shrink-0 transition-all duration-200"
         style={{
           width: collapsed ? 60 : 220,
-          background: "#080808",
-          borderRight: "1px solid #1e1e1e",
+          background: "#ffffff",
+          borderRight: "1px solid var(--border)",
         }}
       >
         {/* Logo */}
-        <div className="flex items-center px-3 py-4" style={{ borderBottom: "1px solid #1e1e1e", minHeight: 56 }}>
+        <div className="flex items-center px-3 py-4" style={{ borderBottom: "1px solid var(--border)", minHeight: 56 }}>
           {!collapsed && (
-            <span className="font-bold gradient-text font-mono text-sm tracking-tight">
+            <span className="font-bold font-display text-sm tracking-tight" style={{ color: "var(--primary)" }}>
               SHIFT HAPPENS!
             </span>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="ml-auto text-xs rounded p-1 transition-colors"
-            style={{ color: "#71717a", background: "transparent", border: "none", cursor: "pointer" }}
+            className="ml-auto text-xs p-1 transition-colors"
+            style={{ color: "var(--muted-2)", background: "transparent", border: "none", cursor: "pointer", borderRadius: "var(--radius)" }}
           >
             {collapsed ? "→" : "←"}
           </button>
@@ -59,11 +59,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             return (
               <Link key={path} href={path}>
                 <div
-                  className="flex items-center gap-3 px-3 py-2 mx-2 my-0.5 rounded-lg cursor-pointer transition-all text-sm"
+                  className="flex items-center gap-3 px-3 py-2 mx-2 my-0.5 cursor-pointer transition-all text-sm"
                   style={{
-                    background: active ? "linear-gradient(135deg, rgba(124,58,237,0.2), rgba(6,182,212,0.1))" : "transparent",
-                    color: active ? "#f5f5f5" : "#71717a",
-                    borderLeft: active ? "2px solid #7c3aed" : "2px solid transparent",
+                    background: active ? "#1a1c1c" : "transparent",
+                    color: active ? "#ffffff" : "var(--muted-2)",
+                    borderRadius: "var(--radius)",
+                    borderLeft: active ? "2px solid var(--accent)" : "2px solid transparent",
                   }}
                 >
                   <span className="text-base flex-shrink-0">{icon}</span>
@@ -75,16 +76,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* User */}
-        <div className="px-3 py-3" style={{ borderTop: "1px solid #1e1e1e" }}>
+        <div className="px-3 py-3" style={{ borderTop: "1px solid var(--border)" }}>
           {!collapsed && session && (
-            <div className="text-xs mb-2 truncate" style={{ color: "#71717a" }}>
+            <div className="text-xs mb-2 truncate" style={{ color: "var(--muted-2)" }}>
               {session.user.name || session.user.email}
             </div>
           )}
           <button
             onClick={handleSignOut}
-            className="w-full text-xs py-1.5 rounded-lg transition-colors text-left px-2"
-            style={{ background: "#1e1e1e", color: "#71717a", border: "none", cursor: "pointer" }}
+            className="w-full text-xs py-1.5 transition-colors text-left px-2"
+            style={{ background: "var(--surface-container-low)", color: "var(--muted)", border: "none", cursor: "pointer", borderRadius: "var(--radius)" }}
           >
             {collapsed ? "↩" : "Sign Out"}
           </button>

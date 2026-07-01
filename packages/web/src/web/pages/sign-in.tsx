@@ -38,33 +38,45 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 fade-in"
-      style={{ background: "linear-gradient(135deg, #0a0a0a 0%, #0f0a1e 100%)" }}>
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center p-4 fade-in relative overflow-hidden">
+      {/* Ambient background photo */}
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: "url(/images/signin-bg.png)",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          filter: "brightness(0.35)",
+        }}
+      />
+      <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(249,249,249,0.95) 0%, rgba(249,249,249,0.88) 100%)" }} />
+
+      <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="text-4xl font-bold gradient-text font-mono tracking-tight mb-1">
+          <div className="text-4xl font-display font-bold tracking-tight mb-1" style={{ color: "var(--primary)" }}>
             SHIFT HAPPENS!
           </div>
-          <div className="text-sm uppercase tracking-widest font-mono" style={{ color: "#71717a" }}>
+          <div className="text-sm uppercase tracking-widest" style={{ color: "var(--muted-2)" }}>
             Restaurant Operations Platform
           </div>
         </div>
 
         {/* Card */}
-        <div className="rounded-2xl p-8" style={{ background: "#111", border: "1px solid #1e1e1e" }}>
+        <div className="p-8" style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "0px 20px 40px rgba(0,0,0,0.04)" }}>
           {/* Tabs */}
-          <div className="flex mb-6 rounded-lg overflow-hidden" style={{ background: "#0a0a0a" }}>
+          <div className="flex mb-6 overflow-hidden" style={{ background: "var(--surface-container-low)", borderRadius: "var(--radius)" }}>
             {(["signin", "signup"] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => { setMode(m); setError(""); }}
-                className="flex-1 py-2 text-sm font-medium transition-all font-mono"
+                className="flex-1 py-2 text-sm font-medium transition-all"
                 style={{
-                  background: mode === m ? "linear-gradient(135deg, #7c3aed, #06b6d4)" : "transparent",
-                  color: mode === m ? "#fff" : "#71717a",
+                  background: mode === m ? "var(--primary)" : "transparent",
+                  color: mode === m ? "#fff" : "var(--muted-2)",
                   border: "none",
                   cursor: "pointer",
+                  borderRadius: "var(--radius)",
                 }}
               >
                 {m === "signin" ? "Sign In" : "Register"}
@@ -75,7 +87,7 @@ export default function SignInPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "signup" && (
               <div>
-                <label className="block text-xs font-mono uppercase tracking-widest mb-1" style={{ color: "#71717a" }}>
+                <label className="block text-xs uppercase tracking-widest mb-1 font-bold" style={{ color: "var(--muted)" }}>
                   Full Name
                 </label>
                 <input
@@ -84,13 +96,13 @@ export default function SignInPage() {
                   onChange={(e) => setName(e.target.value)}
                   required
                   placeholder="Your name"
-                  className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-all"
-                  style={{ background: "#1e1e1e", border: "1px solid #2a2a2a", color: "#f5f5f5" }}
+                  className="w-full px-3 py-2 text-sm outline-none transition-all"
+                  style={{ background: "#fff", border: "1px solid var(--border-strong)", color: "var(--foreground)", borderRadius: "var(--radius)" }}
                 />
               </div>
             )}
             <div>
-              <label className="block text-xs font-mono uppercase tracking-widest mb-1" style={{ color: "#71717a" }}>
+              <label className="block text-xs uppercase tracking-widest mb-1 font-bold" style={{ color: "var(--muted)" }}>
                 Email
               </label>
               <input
@@ -99,12 +111,12 @@ export default function SignInPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@shifthappens.com"
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-all"
-                style={{ background: "#1e1e1e", border: "1px solid #2a2a2a", color: "#f5f5f5" }}
+                className="w-full px-3 py-2 text-sm outline-none transition-all"
+                style={{ background: "#fff", border: "1px solid var(--border-strong)", color: "var(--foreground)", borderRadius: "var(--radius)" }}
               />
             </div>
             <div>
-              <label className="block text-xs font-mono uppercase tracking-widest mb-1" style={{ color: "#71717a" }}>
+              <label className="block text-xs uppercase tracking-widest mb-1 font-bold" style={{ color: "var(--muted)" }}>
                 Password
               </label>
               <input
@@ -113,13 +125,13 @@ export default function SignInPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="••••••••"
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-all"
-                style={{ background: "#1e1e1e", border: "1px solid #2a2a2a", color: "#f5f5f5" }}
+                className="w-full px-3 py-2 text-sm outline-none transition-all"
+                style={{ background: "#fff", border: "1px solid var(--border-strong)", color: "var(--foreground)", borderRadius: "var(--radius)" }}
               />
             </div>
 
             {error && (
-              <div className="text-sm px-3 py-2 rounded-lg" style={{ background: "#2a0a0a", color: "#ef4444", border: "1px solid #3f0e0e" }}>
+              <div className="text-sm px-3 py-2" style={{ background: "var(--danger-bg)", color: "var(--danger)", borderRadius: "var(--radius)" }}>
                 {error}
               </div>
             )}
@@ -127,14 +139,14 @@ export default function SignInPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 rounded-lg font-semibold text-sm btn-gradient mt-2"
+              className="w-full py-2.5 font-semibold text-sm btn-gradient mt-2"
             >
               {loading ? "Please wait..." : mode === "signin" ? "Sign In →" : "Create Account →"}
             </button>
           </form>
         </div>
 
-        <div className="text-center mt-4 text-xs font-mono" style={{ color: "#3f3f3f" }}>
+        <div className="text-center mt-4 text-xs" style={{ color: "var(--muted-2)" }}>
           SHIFT HAPPENS! © {new Date().getFullYear()}
         </div>
       </div>

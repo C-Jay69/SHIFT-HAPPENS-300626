@@ -30,8 +30,8 @@ export default function GuestsPage() {
   return (
     <div className="p-6 max-w-5xl">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold gradient-text font-mono">Guest CRM</h1>
-        <button onClick={() => setShowForm(true)} className="btn-gradient px-4 py-2 rounded-lg text-sm font-semibold">
+        <h1 className="text-xl font-bold font-display" style={{ color: "var(--primary)" }}>Guest CRM</h1>
+        <button onClick={() => setShowForm(true)} className="btn-gradient px-4 py-2 text-sm font-semibold">
           + Add Guest
         </button>
       </div>
@@ -41,38 +41,38 @@ export default function GuestsPage() {
         placeholder="Search guests by name, email or phone..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full px-4 py-2 rounded-xl text-sm mb-4"
-        style={{ background: "#111", border: "1px solid #1e1e1e", color: "#f5f5f5" }}
+        className="w-full px-4 py-2 text-sm mb-4"
+        style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--foreground)", borderRadius: "var(--radius-lg)" }}
       />
 
       <div className="space-y-2">
         {guests.length === 0 ? (
-          <div className="text-center py-12 text-sm" style={{ color: "#71717a" }}>
+          <div className="text-center py-12 text-sm" style={{ color: "var(--muted-2)" }}>
             {search ? "No guests found" : "No guests yet. Add your first one!"}
           </div>
         ) : (
           guests.map((g: any) => (
-            <div key={g.id} className="rounded-xl p-4 flex items-center justify-between"
-              style={{ background: "#111", border: "1px solid #1e1e1e" }}>
+            <div key={g.id} className="p-4 flex items-center justify-between"
+              style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
               <div className="flex items-center gap-4">
                 <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm"
-                  style={{ background: "linear-gradient(135deg,#7c3aed,#06b6d4)", color: "#fff" }}>
+                  style={{ background: "var(--primary)", color: "#fff" }}>
                   {g.firstName[0]}{g.lastName[0]}
                 </div>
                 <div>
                   <div className="font-semibold flex items-center gap-2">
                     {g.firstName} {g.lastName}
-                    {g.isVip && <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(245,158,11,0.2)", color: "#f59e0b" }}>VIP</span>}
+                    {g.isVip && <span className="text-xs px-1.5 py-0.5 font-bold" style={{ background: "var(--accent)", color: "var(--accent-strong)", borderRadius: "var(--radius)" }}>VIP</span>}
                   </div>
-                  <div className="text-xs" style={{ color: "#71717a" }}>
+                  <div className="text-xs" style={{ color: "var(--muted-2)" }}>
                     {g.email || "—"} {g.phone ? `· ${g.phone}` : ""}
                   </div>
                 </div>
               </div>
-              <div className="text-right text-xs font-mono">
-                <div style={{ color: "#7c3aed" }}>{g.totalVisits} visits</div>
-                <div style={{ color: "#71717a" }}>${parseFloat(g.totalSpend || "0").toFixed(2)} total</div>
-                <div style={{ color: "#f59e0b" }}>{g.loyaltyPoints} pts</div>
+              <div className="text-right text-xs">
+                <div style={{ color: "var(--primary)" }} className="font-semibold">{g.totalVisits} visits</div>
+                <div style={{ color: "var(--muted-2)" }}>${parseFloat(g.totalSpend || "0").toFixed(2)} total</div>
+                <div style={{ color: "var(--accent-strong)" }}>{g.loyaltyPoints} pts</div>
               </div>
             </div>
           ))
@@ -81,9 +81,9 @@ export default function GuestsPage() {
 
       {showForm && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4"
-          style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)" }}>
-          <div className="w-full max-w-md rounded-2xl p-6" style={{ background: "#111", border: "1px solid #1e1e1e" }}>
-            <h2 className="text-lg font-bold font-mono mb-4 gradient-text">Add Guest</h2>
+          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
+          <div className="w-full max-w-md p-6" style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
+            <h2 className="text-lg font-bold font-display mb-4" style={{ color: "var(--primary)" }}>Add Guest</h2>
             <div className="space-y-3">
               {[
                 { key: "firstName", label: "First Name", required: true },
@@ -94,14 +94,14 @@ export default function GuestsPage() {
                 { key: "notes", label: "Notes" },
               ].map(({ key, label, required }) => (
                 <div key={key}>
-                  <label className="block text-xs font-mono uppercase tracking-widest mb-1" style={{ color: "#71717a" }}>{label}</label>
+                  <label className="block text-xs uppercase tracking-widest mb-1 font-bold" style={{ color: "var(--muted)" }}>{label}</label>
                   <input
                     type="text"
                     value={(form as any)[key]}
                     onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                     required={required}
-                    className="w-full px-3 py-2 rounded-lg text-sm"
-                    style={{ background: "#1e1e1e", border: "1px solid #2a2a2a", color: "#f5f5f5" }}
+                    className="w-full px-3 py-2 text-sm"
+                    style={{ background: "#fff", border: "1px solid var(--border-strong)", color: "var(--foreground)", borderRadius: "var(--radius)" }}
                   />
                 </div>
               ))}
@@ -112,10 +112,10 @@ export default function GuestsPage() {
             </div>
             <div className="flex gap-2 mt-4">
               <button onClick={() => setShowForm(false)}
-                className="flex-1 py-2 rounded-lg text-sm"
-                style={{ background: "#1e1e1e", border: "none", color: "#71717a", cursor: "pointer" }}>Cancel</button>
+                className="flex-1 py-2 text-sm"
+                style={{ background: "var(--surface-container-low)", border: "none", color: "var(--muted-2)", cursor: "pointer", borderRadius: "var(--radius)" }}>Cancel</button>
               <button onClick={() => create.mutate()} disabled={create.isPending}
-                className="flex-1 py-2 rounded-lg text-sm font-semibold btn-gradient">
+                className="flex-1 py-2 text-sm font-semibold btn-gradient">
                 {create.isPending ? "Saving..." : "Add Guest"}
               </button>
             </div>

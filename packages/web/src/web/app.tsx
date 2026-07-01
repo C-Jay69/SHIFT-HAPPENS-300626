@@ -18,10 +18,10 @@ import AdminPage from "./pages/admin";
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = authClient.useSession();
   if (isPending) return (
-    <div className="h-screen flex items-center justify-center" style={{ background: "#0a0a0a" }}>
+    <div className="h-screen flex items-center justify-center" style={{ background: "var(--background)" }}>
       <div className="text-center">
-        <div className="text-2xl font-bold gradient-text font-mono mb-2">SHIFT HAPPENS!</div>
-        <div className="text-sm" style={{ color: "#71717a" }}>Loading...</div>
+        <div className="text-2xl font-bold font-display mb-2" style={{ color: "var(--primary)" }}>SHIFT HAPPENS!</div>
+        <div className="text-sm" style={{ color: "var(--muted-2)" }}>Loading...</div>
       </div>
     </div>
   );
@@ -50,8 +50,8 @@ function App() {
                 <Route>
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
-                      <div className="text-6xl font-bold gradient-text font-mono mb-2">404</div>
-                      <div style={{ color: "#71717a" }}>Page not found</div>
+                      <div className="text-6xl font-bold font-display mb-2" style={{ color: "var(--primary)" }}>404</div>
+                      <div style={{ color: "var(--muted-2)" }}>Page not found</div>
                     </div>
                   </div>
                 </Route>

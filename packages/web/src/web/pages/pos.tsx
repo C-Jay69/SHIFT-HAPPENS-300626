@@ -75,15 +75,15 @@ export default function POSPage() {
       {/* Menu panel */}
       <div className="flex-1 flex flex-col p-4 overflow-hidden">
         <div className="mb-4">
-          <h1 className="text-xl font-bold gradient-text font-mono">Point of Sale</h1>
+          <h1 className="text-xl font-bold font-display" style={{ color: "var(--primary)" }}>Point of Sale</h1>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-xs font-mono" style={{ color: "#71717a" }}>Table:</span>
+            <span className="text-xs" style={{ color: "var(--muted-2)" }}>Table:</span>
             <input
               type="number"
               value={tableNumber}
               onChange={(e) => setTableNumber(parseInt(e.target.value) || 1)}
-              className="w-16 text-sm px-2 py-1 rounded"
-              style={{ background: "#1e1e1e", border: "1px solid #2a2a2a", color: "#f5f5f5" }}
+              className="w-16 text-sm px-2 py-1"
+              style={{ background: "#fff", border: "1px solid var(--border-strong)", color: "var(--foreground)", borderRadius: "var(--radius)" }}
             />
           </div>
         </div>
@@ -94,12 +94,13 @@ export default function POSPage() {
             <button
               key={cat}
               onClick={() => setCategory(cat)}
-              className="px-3 py-1 rounded-lg text-xs font-mono uppercase tracking-widest transition-all"
+              className="px-3 py-1 text-xs uppercase tracking-widest transition-all font-medium"
               style={{
-                background: category === cat ? "linear-gradient(135deg,#7c3aed,#06b6d4)" : "#1e1e1e",
-                color: category === cat ? "#fff" : "#71717a",
+                background: category === cat ? "var(--primary)" : "var(--surface-container-low)",
+                color: category === cat ? "#fff" : "var(--muted-2)",
                 border: "none",
                 cursor: "pointer",
+                borderRadius: "var(--radius)",
               }}
             >
               {cat}
@@ -114,24 +115,25 @@ export default function POSPage() {
               <button
                 key={item.id}
                 onClick={() => addToCart(item)}
-                className="p-3 rounded-xl text-left transition-all hover:scale-[1.02]"
+                className="p-3 text-left transition-all hover:shadow-sm"
                 style={{
-                  background: "#111",
-                  border: "1px solid #1e1e1e",
+                  background: "var(--card)",
+                  border: "1px solid var(--border)",
                   cursor: "pointer",
-                  color: "#f5f5f5",
+                  color: "var(--foreground)",
+                  borderRadius: "var(--radius-lg)",
                 }}
               >
                 <div className="font-medium text-sm truncate">{item.name}</div>
-                <div className="text-xs mt-1" style={{ color: "#71717a" }}>{item.category}</div>
-                <div className="font-mono font-bold mt-1" style={{ color: "#7c3aed" }}>
+                <div className="text-xs mt-1" style={{ color: "var(--muted-2)" }}>{item.category}</div>
+                <div className="font-bold mt-1" style={{ color: "var(--accent-strong)" }}>
                   ${parseFloat(item.price).toFixed(2)}
                 </div>
               </button>
             ))}
           </div>
           {available.length === 0 && (
-            <div className="text-center py-12 text-sm" style={{ color: "#71717a" }}>
+            <div className="text-center py-12 text-sm" style={{ color: "var(--muted-2)" }}>
               No items in this category
             </div>
           )}
@@ -139,35 +141,35 @@ export default function POSPage() {
       </div>
 
       {/* Cart panel */}
-      <div className="w-72 flex flex-col" style={{ background: "#080808", borderLeft: "1px solid #1e1e1e" }}>
-        <div className="p-4" style={{ borderBottom: "1px solid #1e1e1e" }}>
-          <div className="text-sm font-mono font-bold" style={{ color: "#71717a" }}>ORDER CART</div>
+      <div className="w-72 flex flex-col" style={{ background: "#ffffff", borderLeft: "1px solid var(--border)" }}>
+        <div className="p-4" style={{ borderBottom: "1px solid var(--border)" }}>
+          <div className="text-sm font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>Order Cart</div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {cart.length === 0 && (
-            <div className="text-center py-8 text-xs" style={{ color: "#3f3f3f" }}>
+            <div className="text-center py-8 text-xs" style={{ color: "var(--muted-2)" }}>
               Tap items to add
             </div>
           )}
           {cart.map((item) => (
-            <div key={item.menuItemId} className="rounded-lg p-2" style={{ background: "#111", border: "1px solid #1e1e1e" }}>
+            <div key={item.menuItemId} className="p-2" style={{ background: "var(--surface-container-low)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
               <div className="flex items-start justify-between">
                 <div className="text-sm font-medium flex-1 truncate">{item.name}</div>
                 <button onClick={() => removeFromCart(item.menuItemId)}
-                  style={{ color: "#ef4444", background: "none", border: "none", cursor: "pointer", fontSize: 12 }}>✕</button>
+                  style={{ color: "var(--danger)", background: "none", border: "none", cursor: "pointer", fontSize: 12 }}>✕</button>
               </div>
               <div className="flex items-center justify-between mt-1">
                 <div className="flex items-center gap-1">
                   <button onClick={() => updateQty(item.menuItemId, item.quantity - 1)}
-                    className="w-5 h-5 rounded text-xs"
-                    style={{ background: "#1e1e1e", border: "none", color: "#f5f5f5", cursor: "pointer" }}>−</button>
-                  <span className="text-xs font-mono px-1">{item.quantity}</span>
+                    className="w-5 h-5 text-xs"
+                    style={{ background: "#e8e8e8", border: "none", color: "var(--foreground)", cursor: "pointer", borderRadius: "var(--radius)" }}>−</button>
+                  <span className="text-xs px-1">{item.quantity}</span>
                   <button onClick={() => updateQty(item.menuItemId, item.quantity + 1)}
-                    className="w-5 h-5 rounded text-xs"
-                    style={{ background: "#1e1e1e", border: "none", color: "#f5f5f5", cursor: "pointer" }}>+</button>
+                    className="w-5 h-5 text-xs"
+                    style={{ background: "#e8e8e8", border: "none", color: "var(--foreground)", cursor: "pointer", borderRadius: "var(--radius)" }}>+</button>
                 </div>
-                <span className="text-xs font-mono" style={{ color: "#7c3aed" }}>
+                <span className="text-xs font-semibold" style={{ color: "var(--accent-strong)" }}>
                   ${(item.unitPrice * item.quantity).toFixed(2)}
                 </span>
               </div>
@@ -176,12 +178,12 @@ export default function POSPage() {
         </div>
 
         {/* Totals + checkout */}
-        <div className="p-4" style={{ borderTop: "1px solid #1e1e1e" }}>
-          <div className="space-y-1 text-xs font-mono mb-3">
-            <div className="flex justify-between"><span style={{ color: "#71717a" }}>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
-            <div className="flex justify-between"><span style={{ color: "#71717a" }}>IVA 16%</span><span>${tax.toFixed(2)}</span></div>
+        <div className="p-4" style={{ borderTop: "1px solid var(--border)" }}>
+          <div className="space-y-1 text-xs mb-3">
+            <div className="flex justify-between"><span style={{ color: "var(--muted-2)" }}>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
+            <div className="flex justify-between"><span style={{ color: "var(--muted-2)" }}>IVA 16%</span><span>${tax.toFixed(2)}</span></div>
             <div className="flex justify-between text-sm font-bold mt-1">
-              <span>TOTAL</span><span style={{ color: "#7c3aed" }}>${total.toFixed(2)}</span>
+              <span>TOTAL</span><span style={{ color: "var(--primary)" }}>${total.toFixed(2)}</span>
             </div>
           </div>
 
@@ -190,8 +192,8 @@ export default function POSPage() {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
-            className="w-full text-xs px-2 py-1 rounded mb-2 resize-none"
-            style={{ background: "#1e1e1e", border: "1px solid #2a2a2a", color: "#f5f5f5" }}
+            className="w-full text-xs px-2 py-1 mb-2 resize-none"
+            style={{ background: "#fff", border: "1px solid var(--border-strong)", color: "var(--foreground)", borderRadius: "var(--radius)" }}
           />
 
           <div className="flex gap-1 mb-2">
@@ -199,12 +201,13 @@ export default function POSPage() {
               <button
                 key={m}
                 onClick={() => setPayMethod(m)}
-                className="flex-1 py-1 text-xs rounded font-mono uppercase"
+                className="flex-1 py-1 text-xs uppercase font-medium"
                 style={{
-                  background: payMethod === m ? "linear-gradient(135deg,#7c3aed,#06b6d4)" : "#1e1e1e",
-                  color: payMethod === m ? "#fff" : "#71717a",
+                  background: payMethod === m ? "var(--primary)" : "var(--surface-container-low)",
+                  color: payMethod === m ? "#fff" : "var(--muted-2)",
                   border: "none",
                   cursor: "pointer",
+                  borderRadius: "var(--radius)",
                 }}
               >{m}</button>
             ))}
@@ -213,13 +216,13 @@ export default function POSPage() {
           <button
             disabled={cart.length === 0 || createOrder.isPending}
             onClick={() => createOrder.mutate()}
-            className="w-full py-2.5 rounded-lg font-semibold text-sm btn-gradient"
+            className="w-full py-2.5 font-semibold text-sm btn-gold"
           >
             {createOrder.isPending ? "Processing..." : `PAY $${total.toFixed(2)}`}
           </button>
 
           {orderSuccess && (
-            <div className="text-center text-xs mt-2 py-1 rounded" style={{ color: "#22c55e", background: "rgba(34,197,94,0.1)" }}>
+            <div className="text-center text-xs mt-2 py-1" style={{ color: "var(--success)", background: "var(--success-bg)", borderRadius: "var(--radius)" }}>
               ✓ Order placed!
             </div>
           )}
