@@ -9,6 +9,7 @@ import { ordersRouter } from "./routes/orders";
 import { inventoryRouter } from "./routes/inventory";
 import { staffRouter } from "./routes/staff";
 import { shiftbotRouter } from "./routes/shiftbot";
+import { analyticsRouter } from "./routes/analytics";
 
 const app = new Hono()
   .use(
@@ -29,7 +30,8 @@ const app = new Hono()
   .route("/orders", ordersRouter)
   .route("/inventory", inventoryRouter)
   .route("/staff", staffRouter)
-  .route("/shiftbot", shiftbotRouter);
+  .route("/shiftbot", shiftbotRouter)
+  .route("/analytics", analyticsRouter);
 
 export type AppType = typeof app;
 export default app;
