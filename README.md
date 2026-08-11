@@ -1,121 +1,29 @@
-# SHIFT HAPPENS! 🍔
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-Full-stack restaurant management platform. POS, KDS, reservations, staff scheduling, inventory, analytics, and an AI assistant — all in one.
+# Run and deploy your AI Studio app
 
----
+SHIFT HAPPENS! — a mobile-first restaurant management platform (POS, Inventory, Reservations, KDS, AI assistant).
 
-## Stack
+## Run Locally
 
-| Layer | Tech |
-|---|---|
-| Frontend | React 19 + Vite + TailwindCSS |
-| Backend | Hono (Bun runtime) |
-| Database | Neon Postgres + Drizzle ORM |
-| Auth | better-auth (email/password) |
-| Payments | Stripe |
-| AI | Google Gemini 1.5 Flash via `@google/genai` |
-| Monorepo | Turborepo + Bun workspaces |
+**Prerequisites:** Node.js (18+) or Bun
 
----
-
-## Features
-
-- **POS** — Full point-of-sale with menu grid, cart, table assignment, Stripe payment
-- **KDS** (Kitchen Display System) — Live order queue with status updates, 8s polling
-- **Reservations** — Booking management with status workflow
-- **Staff** — Scheduling, shift tracking, performance
-- **Inventory** — Stock management, low-stock alerts
-- **Analytics** — Revenue, top items, covers, trends
-- **ShiftBot** — AI assistant powered by Gemini 1.5 Flash
-
----
-
-## Env Variables
-
-Create a `.env` file in the project root:
-
-```env
-DATABASE_URL=postgresql://...           # Neon Postgres pooler URL
-BETTER_AUTH_SECRET=...                  # 32+ char random string
-BETTER_AUTH_URL=http://localhost:4200   # Base URL (update for prod)
-STRIPE_SECRET_KEY=sk_live_...          # Stripe secret key
-GEMINI_API_KEY=...                      # Google AI Studio API key
-```
-
----
-
-## Development
-
-```bash
-# Install dependencies
-bun install
-
-# Push DB schema
-cd packages/web && bunx drizzle-kit push
-
-# Seed menu data
-bun run seed.ts  # (from packages/web/)
-
-# Dev server (port 4200)
-bun run dev
-```
-
----
+1. Install dependencies:
+   `npm install` (or `bun install`)
+2. Set your environment variables:
+   `cp .env.example .env` then fill in `OPENROUTER_API_KEY` (and optionally database/Stripe keys)
+3. Run the app:
+   `npm run dev`
 
 ## Production Build
 
-```bash
-bun run build
+```
+npm run build   # outputs to dist/ with PWA service worker + manifest
+npm run preview # serve the production build locally
 ```
 
-Output: `packages/web/dist/`
+The app is a PWA — installable and offline-capable once deployed to any static host.
 
----
-
-## Coolify Deployment (self-hosted VPS)
-
-1. In Coolify, create a new **Application** → **Git Repository**
-2. Point to this repo
-3. Set build command: `bun install && bun run build`
-4. Set start command: `bun run packages/web/src/api/index.ts`
-5. Add all env vars from above
-6. Set port to **4200**
-7. Deploy
-
-> **Note**: Update `BETTER_AUTH_URL` to your production domain before deploying.
-
----
-
-## Railway Deployment
-
-1. Connect repo in Railway
-2. Add a **Postgres** plugin (or use Neon — set `DATABASE_URL` manually)
-3. Set env vars in Railway dashboard
-4. Railway auto-detects Bun — deploy as-is
-5. Set the start command: `bun run packages/web/src/api/index.ts`
-
----
-
-## First Login
-
-Register via `/auth/sign-up`. First user registered is effectively admin — no role enforcement gate on registration.
-
-To promote to admin role, update the `role` column in the `user` table directly via Neon console or Drizzle Studio.
-
----
-
-## Menu Categories
-
-Schema uses uppercase enums: `STARTERS`, `MAINS`, `DESSERT`, `DRINKS`, `SPECIALS`
-
----
-
-## Tax
-
-16% IVA (Mexican) applied server-side on all orders.
-
----
-
-## License
-
-Proprietary — SHIFT HAPPENS! © 2025
+> ⚠️ Never commit `.env`. It is git-ignored. Rotate any credentials that have already been committed in git history.

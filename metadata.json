@@ -1,0 +1,7 @@
+{
+  "name": "SHIFT HAPPENS!",
+  "description": "A comprehensive, mobile-first restaurant management platform unifying POS, Inventory, Reservations, and AI-driven CRM.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

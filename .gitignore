@@ -1,74 +1,29 @@
-# dependencies
-node_modules
-
-# output
-out
-dist
-dist-electron
-release
-web-build
-*.tgz
-
-# code coverage
-coverage
-*.lcov
-
-# logs
+# Logs
 logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# local databases
-*.db
+node_modules
+dist
+dist-ssr
+*.local
 
-# dotenv environment variable files
+# Environment variables (never commit secrets)
 .env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
-.env*.local
+.env.*
+!.env.example
 
-# caches
-.eslintcache
-.cache
-*.tsbuildinfo
-.turbo
-
-# IntelliJ based IDEs
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
 .idea
-
-# macOS
 .DS_Store
-
-# Expo
-.expo/
-expo-env.d.ts
-
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-*.pem
-
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# generated native folders
-ios
-android
-
-# scripts (local-only provisioning)
-scripts/
-!packages/mobile/scripts/
-packages/mobile/scripts/*
-!packages/mobile/scripts/generate-ios-certs.py
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
