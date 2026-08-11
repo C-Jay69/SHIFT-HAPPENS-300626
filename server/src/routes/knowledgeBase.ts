@@ -8,10 +8,12 @@ import { ingestKnowledge, searchKnowledgeBase } from '../lib/knowledgeBase.js';
 const router = Router();
 router.use(requireAuth);
 
-router.get('/', requirePermission('ai.configure'), async (_req, res, next) => {
+router.get('/', requirePermission('ai.configure'), async (req, res, next) => {
   try {
+    const user = currentUser(req);
     const { rows } = await pool.query(
-      'SELECT id, category, question, answer, created_at FROM knowledge_base ORDER BY created_at DESC LIMIT 500',
+      'SELECT id, category, question, answer, created_at FROM knowledge_base WHERE restaurant_id = $1 ORDER BY created_at DESC LIMIT 500',
+      [user.restaurantId],
     );
     res.json(rows);
   } catch (e) {
@@ -72,6 +74,56 @@ router.post('/search', async (req, res, next) => {
     const body = z.object({ query: z.string().min(1), topK: z.number().int().min(1).max(20).optional() }).parse(req.body);
     const results = await searchKnowledgeBase(user.restaurantId, body.query, body.topK ?? 5);
     res.json(results);
+  } catch (e) {
+    next(e);
+  }
+});
+
+const updateSchema = z.object({
+  category: z.string().min(1).optional(),
+  question: z.string().nullable().optional(),
+  answer: z.string().min(1).optional(),
+});
+
+router.patch('/:id', requirePermission('ai.configure'), async (req, res, next) => {
+  try {
+    const user = currentUser(req);
+    const body = updateSchema.parse(req.body);
+    const sets: string[] = [];
+    const values: unknown[] = [req.params.id, user.restaurantId];
+    const map: Record<string, unknown> = {
+      category: body.category,
+      question: body.question === undefined ? undefined : (body.question || null),
+      answer: body.answer,
+    };
+    for (const key of Object.keys(map)) {
+      if (map[key] !== undefined) {
+        sets.push(`${key} = $${values.length + 1}`);
+        values.push(map[key]);
+      }
+    }
+    if (sets.length === 0) throw new ApiError(400, 'No fields to update');
+
+    const { rows } = await pool.query(
+      `UPDATE knowledge_base SET ${sets.join(', ')} WHERE id = $1 AND restaurant_id = $2 RETURNING id, category, question, answer`,
+      values,
+    );
+    if (!rows[0]) throw new ApiError(404, 'Knowledge base entry not found');
+    res.json(rows[0]);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.delete('/:id', requirePermission('ai.configure'), async (req, res, next) => {
+  try {
+    const user = currentUser(req);
+    const { rowCount } = await pool.query(
+      'DELETE FROM knowledge_base WHERE id = $1 AND restaurant_id = $2',
+      [req.params.id, user.restaurantId],
+    );
+    if (!rowCount) throw new ApiError(404, 'Knowledge base entry not found');
+    res.status(204).end();
   } catch (e) {
     next(e);
   }
