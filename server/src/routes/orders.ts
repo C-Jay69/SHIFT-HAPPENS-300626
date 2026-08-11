@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { pool } from '../db.js';
 import { requireAuth, currentUser } from '../middleware/auth.js';
 import { ApiError } from '../middleware/error.js';
+import { createPaymentIntent } from '../lib/payment.js';
+import { broadcastOrderUpdate, broadcastTableUpdate } from '../lib/realtime.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -123,8 +125,11 @@ router.post('/', async (req, res, next) => {
 
     await client.query('COMMIT');
 
+    const created = { ...order, total, tax, tip: 0 };
+    broadcastOrderUpdate('order:created', created);
+
     res.status(201).json({
-      order: { ...order, total, tax, tip: 0 },
+      order: created,
       lowStockAlerts: alerts,
     });
   } catch (e) {
@@ -153,7 +158,44 @@ router.get('/', async (_req, res, next) => {
   }
 });
 
-// --- Payment (Stripe gateway is stubbed; wire STRIPE_SECRET_KEY to go live) ---
+router.get('/active', async (_req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT o.*, t.name AS table_name, g.first_name, g.last_name,
+              (SELECT COALESCE(json_agg(oi ORDER BY oi.created_at), '[]')
+                 FROM order_items oi WHERE oi.order_id = o.id) AS items
+         FROM orders o
+         LEFT JOIN tables t ON t.id = o.table_id
+         LEFT JOIN guests g ON g.id = o.guest_id
+        WHERE o.status NOT IN ('paid', 'void')
+        ORDER BY o.created_at ASC`,
+    );
+    res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
+const statusSchema = z.object({
+  status: z.enum(['open', 'sent_to_kitchen', 'preparing', 'ready', 'served', 'paid', 'void']),
+});
+
+router.patch('/:id/status', async (req, res, next) => {
+  try {
+    const body = statusSchema.parse(req.body);
+    const { rows } = await pool.query(
+      'UPDATE orders SET status = $1, updated_at = now() WHERE id = $2 RETURNING *',
+      [body.status, req.params.id],
+    );
+    if (!rows[0]) throw new ApiError(404, 'Order not found');
+    broadcastOrderUpdate('order:status', rows[0]);
+    res.json(rows[0]);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// --- Payment ---
 const paySchema = z.object({
   amount: z.number().positive().optional(),
   method: z.enum(['card', 'cash', 'split']).default('card'),
@@ -173,23 +215,145 @@ router.post('/:id/pay', async (req, res, next) => {
     if (!orderRes.rowCount) throw new ApiError(404, 'Order not found or already paid');
     const order = orderRes.rows[0];
 
+    // Card payment via Stripe PaymentIntent: hand the client a client secret.
+    if (body.method === 'card' && !body.stripePaymentId) {
+      await client.query('COMMIT');
+      const intent = await createPaymentIntent(order, currentUser(req).id);
+      return res.status(201).json({ requiresAction: true, ...intent });
+    }
+
     const amount = body.amount ?? Number(order.total) + Number(order.tax);
+    await finalizePaidOrder(
+      order.id,
+      {
+        method: body.method,
+        stripePaymentId: body.stripePaymentId ?? null,
+        amount,
+      },
+      client,
+    );
+
+    await client.query('COMMIT');
+    const tx = await pool.query(
+      `SELECT * FROM transactions WHERE order_id = $1 ORDER BY created_at ASC`,
+      [order.id],
+    );
+    broadcastTableUpdate(order.table_id);
+    res.status(201).json({ transaction: tx.rows[tx.rows.length - 1] });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    next(e);
+  } finally {
+    client.release();
+  }
+});
+
+// Void an order — reverses the reserved ingredients back into stock.
+const voidSchema = z.object({ reason: z.string().optional() });
+
+router.post('/:id/void', async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const body = voidSchema.parse(req.body);
+    const user = currentUser(req);
+
+    const orderRes = await client.query(
+      "SELECT * FROM orders WHERE id = $1 AND status != 'paid' AND status != 'void'",
+      [req.params.id],
+    );
+    if (!orderRes.rowCount) throw new ApiError(404, 'Order not found or not voidable');
+    const order = orderRes.rows[0];
+
+    // Reverse each sold item's ingredient consumption.
+    const items = await client.query(
+      `SELECT oi.menu_item_id, oi.quantity
+         FROM order_items oi WHERE oi.order_id = $1 AND oi.status != 'void'`,
+      [order.id],
+    );
+    for (const it of items.rows) {
+      const recipeRows = await client.query(
+        `SELECT ri.ingredient_id, ri.quantity
+           FROM recipes r
+           JOIN recipe_ingredients ri ON ri.recipe_id = r.id
+          WHERE r.menu_item_id = $1`,
+        [it.menu_item_id],
+      );
+      for (const ing of recipeRows.rows) {
+        await client.query(
+          `UPDATE ingredients SET current_stock = current_stock + $1, updated_at = now()
+            WHERE id = $2`,
+          [ing.quantity * it.quantity, ing.ingredient_id],
+        );
+        await client.query(
+          `INSERT INTO stock_transactions (ingredient_id, quantity_change, reason, created_by)
+           VALUES ($1, $2, 'adjustment', $3)`,
+          [ing.ingredient_id, ing.quantity * it.quantity, user.id],
+        );
+      }
+      await client.query("UPDATE order_items SET status = 'void' WHERE order_id = $1", [order.id]);
+    }
+
+    await client.query("UPDATE orders SET status = 'void', closed_at = now() WHERE id = $1", [order.id]);
+    if (order.table_id) {
+      await client.query(
+        "UPDATE tables SET status = 'available' WHERE id = $1 AND status = 'occupied'",
+        [order.table_id],
+      );
+    }
+
+    await client.query('COMMIT');
+    broadcastOrderUpdate('order:status', { ...order, status: 'void' });
+    res.status(201).json({ voided: true });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    next(e);
+  } finally {
+    client.release();
+  }
+});
+
+export const ordersRouter = router;
+
+/**
+ * Shared by the manual pay route and the Stripe webhook.
+ *
+ * - The orders route passes an open `client` (it manages BEGIN/COMMIT).
+ * - The Stripe webhook passes nothing → this connects its own client and wraps
+ *   the whole finalize in its own transaction.
+ */
+export async function finalizePaidOrder(
+  orderId: string,
+  opts: { method: 'card' | 'cash' | 'split'; stripePaymentId?: string | null; amount: number },
+  client?: import('pg').PoolClient,
+): Promise<unknown> {
+  let ownsClient = false;
+  if (!client) {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    ownsClient = true;
+  }
+
+  try {
     const tx = await client.query(
       `INSERT INTO transactions (order_id, payment_method, amount, stripe_payment_id, status)
        VALUES ($1, $2, $3, $4, 'succeeded') RETURNING *`,
-      [order.id, body.method, amount, body.stripePaymentId ?? null],
+      [orderId, opts.method, opts.amount, opts.stripePaymentId ?? null],
     );
 
     await client.query(
       `UPDATE orders SET status = 'paid', closed_at = now() WHERE id = $1`,
-      [order.id],
+      [orderId],
     );
+
+    const orderRes = await client.query('SELECT * FROM orders WHERE id = $1', [orderId]);
+    const order = orderRes.rows[0];
 
     // Update guest lifetime spend.
     if (order.guest_id) {
       await client.query(
         'UPDATE guests SET total_spend = total_spend + $1 WHERE id = $2',
-        [amount, order.guest_id],
+        [opts.amount, order.guest_id],
       );
     }
 
@@ -201,14 +365,13 @@ router.post('/:id/pay', async (req, res, next) => {
       );
     }
 
-    await client.query('COMMIT');
-    res.status(201).json({ transaction: tx.rows[0] });
+    if (ownsClient) await client.query('COMMIT');
+    broadcastOrderUpdate('order:status', { ...order, status: 'paid' });
+    return tx.rows[0];
   } catch (e) {
-    await client.query('ROLLBACK');
-    next(e);
+    if (ownsClient) await client.query('ROLLBACK');
+    throw e;
   } finally {
-    client.release();
+    if (ownsClient) client.release();
   }
-});
-
-export const ordersRouter = router;
+}
