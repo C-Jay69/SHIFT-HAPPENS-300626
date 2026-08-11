@@ -12,6 +12,8 @@ const AIAgent = lazy(() => import('./pages/AIAgent.tsx'));
 const KDS = lazy(() => import('./pages/KDS.tsx'));
 const Admin = lazy(() => import('./pages/Admin.tsx'));
 const Login = lazy(() => import('./pages/Login.tsx'));
+const Staff = lazy(() => import('./pages/Staff.tsx'));
+const Events = lazy(() => import('./pages/Events.tsx'));
 
 const PageLoader = () => (
   <div className="h-full min-h-[50vh] flex items-center justify-center">
@@ -45,6 +47,8 @@ function App() {
                   <Route path="/reservations" element={<Reservations />} />
                   <Route path="/agent" element={<AIAgent />} />
                   <Route path="/kds" element={<KDS />} />
+                  <Route path="/staff" element={<Staff />} />
+                  <Route path="/events" element={<Events />} />
                   <Route path="/admin" element={<Admin />} />
                   <Route path="/login" element={<Login />} />
                 </Routes>

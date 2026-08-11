@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store.tsx';
-import { LayoutDashboard, UtensilsCrossed, CalendarDays, Boxes, Bot, ChefHat, X, Lock, LogIn } from 'lucide-react';
+import { LayoutDashboard, UtensilsCrossed, CalendarDays, Boxes, Bot, ChefHat, X, Lock, LogIn, Users, PartyPopper } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -25,6 +25,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { path: '/reservations', icon: CalendarDays, label: 'Reservations' },
     { path: '/inventory', icon: Boxes, label: 'Inventory' },
     { path: '/kds', icon: ChefHat, label: 'Kitchen Display' },
+    { path: '/staff', icon: Users, label: 'Staff & Shifts' },
+    { path: '/events', icon: PartyPopper, label: 'Events & Catering' },
     { path: '/agent', icon: Bot, label: 'AI Manager' },
     { path: '/admin', icon: Lock, label: 'Admin Panel' },
   ];

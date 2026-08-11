@@ -3,8 +3,10 @@ import express from 'express';
 import cors from 'cors';
 import path from 'node:path';
 import fs from 'node:fs';
+import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
-import { uploadHandler, stripeWebhookHandler } from './lib/stripe.js';
+import { stripeWebhookHandler, paymentIntentRouter } from './lib/stripe.js';
+import { initRealtime } from './lib/realtime.js';
 import { authRouter } from './routes/auth.js';
 import { guestsRouter } from './routes/guests.js';
 import { reservationsRouter } from './routes/reservations.js';
@@ -45,7 +47,7 @@ app.use('/api/v1/ai', aiRouter);
 app.use('/api/v1/knowledge-base', knowledgeBaseRouter);
 app.use('/api/v1/voice', voiceRouter);
 app.use('/api/v1/integrations', integrationsRouter);
-app.use('/api/v1/stripe/payment-intents', uploadHandler);
+app.use('/api/v1/stripe/payment-intents', paymentIntentRouter);
 
 // In production the frontend build (root/dist) is served by this same process,
 // so a single PORT serves the entire platform.
@@ -59,7 +61,10 @@ app.use(notFound);
 app.use(errorHandler);
 
 const PORT = Number(process.env.PORT ?? 4000);
-app.listen(PORT, () => {
+const server = createServer(app);
+initRealtime(server);
+
+server.listen(PORT, () => {
   console.log(`🚀 SHIFT HAPPENS! API listening on http://0.0.0.0:${PORT}`);
   if (fs.existsSync(webDist)) console.log(`📦 SPA build detected — serving frontend from ${webDist}`);
   else console.log('ℹ️  No SPA build found — run `npm run build` to serve the frontend from this port.');

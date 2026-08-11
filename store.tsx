@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useRe
 import { Ingredient, MenuItem, Table, Order, Reservation, OrderStatus, TableStatus } from './types.ts';
 import { INITIAL_INGREDIENTS, INITIAL_TABLES, INITIAL_RESERVATIONS, MENU_ITEMS as INITIAL_MENU_ITEMS } from './constants.ts';
 import { api, AuthUser, ApiClientError, loadStoredUser } from './services/api.ts';
+import { connectRealtime, onRealtime } from './services/realtime.ts';
 
 // ---------------------------------------------------------------------------
 // Mapping helpers: backend rows (snake_case) -> frontend types.
@@ -224,6 +225,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Real-time: keep the store fresh when orders/tables change on the server
+  // (POS on another terminal, the KDS, or the AI phone agent).
+  useEffect(() => {
+    if (!api.getToken()) return;
+    connectRealtime();
+    const unsubs = [
+      onRealtime('order:created', () => loadFromApi()),
+      onRealtime('order:status', () => loadFromApi()),
+      onRealtime('table:updated', () => loadFromApi()),
+    ];
+    return () => unsubs.forEach((u) => u());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser]);
 
   const login = async (email: string, password: string) => {
     const data = await api.post<{ token: string; user: AuthUser }>('/auth/login', { email, password });

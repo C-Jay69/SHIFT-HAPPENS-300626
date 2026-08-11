@@ -82,6 +82,18 @@ const RESERVATIONS: { firstName: string; phone: string; partySize: number; timeS
   { firstName: 'T. Stark', phone: '555-1111', partySize: 6, timeSlot: '20:00', status: 'confirmed', notes: 'VIP — birthday dessert on us', tableName: 'Booth B' },
 ];
 
+const STAFF: { firstName: string; lastName: string; role: string; hourlyRate: number }[] = [
+  { firstName: 'Marcus', lastName: 'Reyes', role: 'manager', hourlyRate: 28 },
+  { firstName: 'Dana', lastName: 'Kim', role: 'server', hourlyRate: 12 },
+  { firstName: 'Priya', lastName: 'Shah', role: 'cook', hourlyRate: 16 },
+  { firstName: 'Leo', lastName: 'Grant', role: 'host', hourlyRate: 11 },
+];
+
+const EVENT_LEADS: { contactName: string; eventType: string; guestCount: number; budget: number; status: string; notes: string }[] = [
+  { contactName: 'Nina Petrova', eventType: 'birthday', guestCount: 20, budget: 900, status: 'new', notes: 'Saturday evening, birthday for 21st' },
+  { contactName: 'Apex Consulting', eventType: 'corporate', guestCount: 45, budget: 3500, status: 'contacted', notes: 'Quarterly offsite — needs A/V check' },
+];
+
 const client = await pool.connect();
 try {
   const role = await client.query(`SELECT id FROM roles WHERE name = 'owner' LIMIT 1`);
@@ -114,6 +126,12 @@ try {
     // Clear any previously seeded demo data (single-restaurant demo app).
     await client.query('DELETE FROM reservations');
     await client.query('DELETE FROM guests');
+    await client.query('DELETE FROM event_contracts');
+    await client.query('DELETE FROM event_proposals');
+    await client.query('DELETE FROM event_leads');
+    await client.query('DELETE FROM shifts');
+    await client.query('DELETE FROM time_logs');
+    await client.query('DELETE FROM staff');
     await client.query(
       `DELETE FROM menu_items WHERE category_id IN (SELECT id FROM menu_categories WHERE restaurant_id = $1)`,
       [restaurantId],
@@ -186,9 +204,45 @@ try {
       );
     }
 
+    // Demo staff + a week of shifts.
+    const staffIds = new Map<string, string>();
+    for (const s of STAFF) {
+      const res = await client.query(
+        `INSERT INTO staff (restaurant_id, first_name, last_name, role, hourly_rate, hire_date, status)
+         VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, 'active') RETURNING id`,
+        [restaurantId, s.firstName, s.lastName, s.role, s.hourlyRate],
+      );
+      staffIds.set(`${s.firstName} ${s.lastName}`, res.rows[0].id);
+    }
+    const startOfWeek = new Date();
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+    for (const [name, staffId] of staffIds) {
+      const member = STAFF.find((s) => `${s.firstName} ${s.lastName}` === name);
+      if (!member) continue;
+      const isDay = member.role === 'cook' || member.role === 'manager';
+      for (let day = 1; day <= 7; day++) {
+        const date = new Date(startOfWeek);
+        date.setDate(startOfWeek.getDate() + day);
+        const dateStr = date.toISOString().slice(0, 10);
+        await client.query(
+          `INSERT INTO shifts (staff_id, date, start_time, end_time, role)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [staffId, dateStr, isDay ? '10:00' : '16:00', isDay ? '18:00' : '23:30', member.role],
+        );
+      }
+    }
+
+    // Demo event leads + one accepted contract chain for the corporate lead.
+    for (const e of EVENT_LEADS) {
+      await client.query(
+        `INSERT INTO event_leads (restaurant_id, contact_name, contact_email, event_type, event_date, guest_count, budget, status, notes)
+         VALUES ($1, $2, NULL, $3, CURRENT_DATE + 14, $4, $5, $6, $7)`,
+        [restaurantId, e.contactName, e.eventType, e.guestCount, e.budget, e.status, e.notes],
+      );
+    }
+
     await client.query('COMMIT');
-    console.log(`✅ Demo dataset seeded: ${INGREDIENTS.length} ingredients, ${MENU_ITEMS.length} menu items, ${TABLES.length} tables, ${RESERVATIONS.length} reservations.`);
-  } catch (err) {
+    console.log(`✅ Demo dataset seeded: ${INGREDIENTS.length} ingredients, ${MENU_ITEMS.length} menu items, ${TABLES.length} tables, ${RESERVATIONS.length} reservations, ${STAFF.length} staff, ${EVENT_LEADS.length} event leads.`);  } catch (err) {
     await client.query('ROLLBACK');
     throw err;
   }

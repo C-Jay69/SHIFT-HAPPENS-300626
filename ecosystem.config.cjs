@@ -1,18 +1,20 @@
 module.exports = {
   apps: [
     {
-      name: "web-app",
-      // Bun only auto-loads .env from its cwd — run from the repo root so the
-      // root .env (DATABASE_URL etc.) reaches the server on every spawn.
+      name: "shift-happens-api",
+      // Run from the repo root so the root .env (DATABASE_URL etc.) is loaded
+      // by the server on every spawn.
       cwd: __dirname,
-      script: "packages/web/src/server.ts",
-      interpreter: "bun",
+      script: "server/dist/index.js",
+      interpreter: "node",
       exec_mode: "fork",
       instances: 1,
       autorestart: true,
       restart_delay: 1000,
+      max_memory_restart: "300M",
       env: {
-        PORT: process.env.PORT || 4200,
+        NODE_ENV: "production",
+        PORT: process.env.PORT || 4000,
       },
     },
   ],
