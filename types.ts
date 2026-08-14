@@ -5,7 +5,8 @@ export enum OrderStatus {
   PREPARING = 'PREPARING',
   READY = 'READY',
   SERVED = 'SERVED',
-  PAID = 'PAID'
+  PAID = 'PAID',
+  VOID = 'VOID'
 }
 
 export enum TableStatus {
@@ -31,16 +32,26 @@ export interface MenuItem {
   price: number;
   color: string;
   recipe: { ingredientId: string; quantity: number }[];
+  modifiers?: Modifier[];
+}
+
+export interface Modifier {
+  id: string;
+  name: string;
+  price_adjustment: number;
+  is_required: boolean;
 }
 
 export interface Table {
   id: string;
   name: string;
   seats: number;
+  capacity: number;
   status: TableStatus;
   currentOrderId?: string;
-  x: number; // For floorplan
+  x: number;
   y: number;
+  shape?: 'square' | 'rectangle' | 'round' | 'largeRound';
 }
 
 export interface OrderItem {
@@ -48,7 +59,9 @@ export interface OrderItem {
   name: string;
   quantity: number;
   price: number;
+  unit_price: number;
   notes?: string;
+  modifiers?: { id: string; name: string; price_adjustment: number; quantity: number }[];
 }
 
 export interface Order {
@@ -58,6 +71,9 @@ export interface Order {
   status: OrderStatus;
   total: number;
   timestamp: Date;
+  tax?: number;
+  tip?: number;
+  guests?: number;
 }
 
 export interface Reservation {
@@ -70,4 +86,31 @@ export interface Reservation {
   vip?: boolean;
   notes?: string;
   tableId?: string;
+}
+
+export interface WaitlistEntry {
+  id: string;
+  guestId: string;
+  guestName: string;
+  guestPhone: string;
+  partySize: number;
+  requestedDate: string;
+  requestedTime: string;
+  status: 'waiting' | 'notified' | 'seated' | 'cancelled';
+  notes?: string;
+  createdAt: string;
+  notifiedAt?: string;
+}
+
+export interface Guest {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  vip_status: boolean;
+  total_spend: number;
+  loyalty_points: number;
+  notes?: string;
+  created_at: string;
 }

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
-import { Ingredient, MenuItem, Table, Order, Reservation, OrderStatus, TableStatus } from './types.ts';
+import { Ingredient, MenuItem, Table, Order, Reservation, OrderStatus, TableStatus, WaitlistEntry, Guest } from './types.ts';
 import { INITIAL_INGREDIENTS, INITIAL_TABLES, INITIAL_RESERVATIONS, MENU_ITEMS as INITIAL_MENU_ITEMS } from './constants.ts';
 import { api, AuthUser, ApiClientError, loadStoredUser } from './services/api.ts';
 import { connectRealtime, onRealtime } from './services/realtime.ts';
@@ -60,10 +60,12 @@ const toTable = (raw: any): Table => ({
   id: raw.id,
   name: raw.name,
   seats: raw.capacity,
+  capacity: raw.capacity,
   status: TABLE_STATUS_MAP[raw.status] ?? TableStatus.AVAILABLE,
   currentOrderId: raw.current_order_id ?? undefined,
   x: raw.floor_plan_x,
   y: raw.floor_plan_y,
+  shape: raw.shape,
 });
 
 const toReservation = (raw: any): Reservation => ({
@@ -117,6 +119,8 @@ interface AppContextType {
   tables: Table[];
   orders: Order[];
   reservations: Reservation[];
+  waitlist: WaitlistEntry[];
+  guests: Guest[];
   activeOrder: Order | null;
   menuItems: MenuItem[];
   systemPrompt: string;
@@ -140,8 +144,14 @@ interface AppContextType {
   completeOrder: (orderId: string) => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   updateTableStatus: (tableId: string, status: TableStatus) => void;
+  addTable: (table: Table) => void;
+  updateTable: (id: string, updates: Partial<Table>) => void;
+  deleteTable: (id: string) => void;
   addReservation: (reservation: Reservation) => void;
   updateReservation: (id: string, updates: Partial<Reservation>) => void;
+  addWaitlistEntry: (entry: WaitlistEntry) => void;
+  updateWaitlistEntry: (id: string, updates: Partial<WaitlistEntry>) => void;
+  removeWaitlistEntry: (id: string) => void;
   deductInventory: (menuItem: MenuItem) => void;
   updateIngredient: (id: string, updates: Partial<Ingredient>) => void;
 
@@ -172,6 +182,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [tables, setTables] = useState<Table[]>(INITIAL_TABLES);
   const [orders, setOrders] = useState<Order[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>(INITIAL_RESERVATIONS);
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
+  const [guests, setGuests] = useState<Guest[]>([]);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>(INITIAL_MENU_ITEMS);
   const [systemPrompt, setSystemPrompt] = useState<string>(DEFAULT_SYSTEM_PROMPT);
@@ -184,13 +196,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const loadFromApi = async () => {
     if (!api.getToken()) return;
     try {
-      const [menuRaw, ingRaw, tablesRaw, resRaw, ordersRaw, categoriesRaw] = await Promise.all([
+      const [menuRaw, ingRaw, tablesRaw, resRaw, ordersRaw, categoriesRaw, waitlistRaw, guestsRaw] = await Promise.all([
         api.get<any[]>('/menu/items'),
         api.get<any[]>('/inventory/ingredients'),
         api.get<any[]>('/tables'),
         api.get<any[]>('/reservations'),
         api.get<any[]>('/orders'),
         api.get<any[]>('/menu/categories'),
+        api.get<any[]>('/waitlist').catch(() => []),
+        api.get<any[]>('/guests').catch(() => []),
       ]);
 
       categoryIdsRef.current = Object.fromEntries(
@@ -202,6 +216,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if ((ingRaw ?? []).length) setIngredients(ingRaw.map(toIngredient));
       if ((tablesRaw ?? []).length) setTables(tablesRaw.map(toTable));
       if ((resRaw ?? []).length) setReservations(resRaw.map(toReservation));
+      if ((waitlistRaw ?? []).length) setWaitlist(waitlistRaw);
+      if ((guestsRaw ?? []).length) setGuests(guestsRaw);
       const mappedOrders = (ordersRaw ?? []).map((o) => toOrder(o, menu));
       if (mappedOrders.length) setOrders(mappedOrders);
     } catch (e) {
@@ -293,7 +309,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         menuItemId: menuItem.id,
         name: menuItem.name,
         quantity: 1,
-        price: menuItem.price
+        price: menuItem.price,
+        unit_price: menuItem.price
       });
     }
 
@@ -356,6 +373,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     setActiveOrder(updatedOrder);
     setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+  };
+
+  // Waitlist actions
+  const addWaitlistEntry = (entry: WaitlistEntry) => {
+    setWaitlist(prev => [...prev, entry]);
+    if (!api.getToken()) return;
+    api.post('/waitlist', entry).catch(() => undefined);
+  };
+
+  const updateWaitlistEntry = (id: string, updates: Partial<WaitlistEntry>) => {
+    setWaitlist(prev => prev.map(entry => entry.id === id ? { ...entry, ...updates } : entry));
+    if (!api.getToken()) return;
+    api.patch(`/waitlist/${id}`, updates).catch(() => undefined);
+  };
+
+  const removeWaitlistEntry = (id: string) => {
+    setWaitlist(prev => prev.filter(entry => entry.id !== id));
+    if (!api.getToken()) return;
+    api.delete(`/waitlist/${id}`).catch(() => undefined);
   };
 
   const deductInventory = (menuItem: MenuItem) => {
@@ -422,6 +458,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!api.getToken()) return;
     api.patch(`/tables/${tableId}`, { status: TABLE_STATUS_TO_API[status] })
       .catch(() => undefined);
+  };
+
+  // Table actions
+  const addTable = (table: Table) => {
+    setTables(prev => [...prev, table]);
+    if (!api.getToken()) return;
+    api.post('/tables', {
+      name: table.name,
+      capacity: table.seats,
+      floor_plan_x: table.x,
+      floor_plan_y: table.y,
+      status: TABLE_STATUS_TO_API[table.status],
+    }).catch(() => undefined);
+  };
+
+  const updateTable = (id: string, updates: Partial<Table>) => {
+    setTables(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+    if (!api.getToken()) return;
+    const body: Record<string, unknown> = {};
+    if (updates.name !== undefined) body.name = updates.name;
+    if (updates.seats !== undefined) body.capacity = updates.seats;
+    if (updates.x !== undefined) body.floor_plan_x = updates.x;
+    if (updates.y !== undefined) body.floor_plan_y = updates.y;
+    if (updates.status !== undefined) body.status = TABLE_STATUS_TO_API[updates.status];
+    api.patch(`/tables/${id}`, body).catch(() => undefined);
+  };
+
+  const deleteTable = (id: string) => {
+    setTables(prev => prev.filter(t => t.id !== id));
+    if (!api.getToken()) return;
+    api.delete(`/tables/${id}`).catch(() => undefined);
   };
 
   const addReservation = (reservation: Reservation) => {
@@ -501,6 +568,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       tables,
       orders,
       reservations,
+      waitlist,
+      guests,
       activeOrder,
       menuItems,
       systemPrompt,
@@ -518,8 +587,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       completeOrder,
       updateOrderStatus,
       updateTableStatus,
+      addTable,
+      updateTable,
+      deleteTable,
       addReservation,
       updateReservation,
+      addWaitlistEntry,
+      updateWaitlistEntry,
+      removeWaitlistEntry,
       deductInventory,
       updateIngredient,
       updateSystemPrompt,

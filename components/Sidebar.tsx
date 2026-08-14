@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store.tsx';
-import { LayoutDashboard, UtensilsCrossed, CalendarDays, Boxes, Bot, ChefHat, X, Lock, LogIn, Users, PartyPopper } from 'lucide-react';
+import { LayoutDashboard, UtensilsCrossed, CalendarDays, Boxes, Bot, ChefHat, X, Lock, LogIn, Users, PartyPopper, Grid, UserPlus } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  currentPath: string;
+  user: { name: string; role: string } | null;
 }
 
 const ROLES = ['owner', 'general_manager', 'manager', 'server', 'host', 'cook'];
@@ -23,6 +25,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/pos', icon: UtensilsCrossed, label: 'POS Terminal' },
     { path: '/reservations', icon: CalendarDays, label: 'Reservations' },
+    { path: '/floorplan', icon: Grid, label: 'Floor Plan' },
+    { path: '/guests', icon: UserPlus, label: 'Guests' },
     { path: '/inventory', icon: Boxes, label: 'Inventory' },
     { path: '/kds', icon: ChefHat, label: 'Kitchen Display' },
     { path: '/staff', icon: Users, label: 'Staff & Shifts' },

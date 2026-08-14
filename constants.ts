@@ -60,13 +60,13 @@ export const MENU_ITEMS: MenuItem[] = [
 ];
 
 export const INITIAL_TABLES: Table[] = [
-  { id: 't1', name: 'Table 1', seats: 2, status: TableStatus.AVAILABLE, x: 20, y: 20 },
-  { id: 't2', name: 'Table 2', seats: 2, status: TableStatus.OCCUPIED, x: 120, y: 20, currentOrderId: 'ord_1' },
-  { id: 't3', name: 'Table 3', seats: 4, status: TableStatus.AVAILABLE, x: 220, y: 20 },
-  { id: 't4', name: 'Booth A', seats: 6, status: TableStatus.RESERVED, x: 20, y: 150 },
-  { id: 't5', name: 'Booth B', seats: 6, status: TableStatus.DIRTY, x: 20, y: 280 },
-  { id: 't6', name: 'Bar 1', seats: 1, status: TableStatus.AVAILABLE, x: 300, y: 150 },
-  { id: 't7', name: 'Bar 2', seats: 1, status: TableStatus.AVAILABLE, x: 300, y: 200 },
+  { id: 't1', name: 'Table 1', seats: 2, capacity: 2, status: TableStatus.AVAILABLE, x: 20, y: 20 },
+  { id: 't2', name: 'Table 2', seats: 2, capacity: 2, status: TableStatus.OCCUPIED, x: 120, y: 20, currentOrderId: 'ord_1' },
+  { id: 't3', name: 'Table 3', seats: 4, capacity: 4, status: TableStatus.AVAILABLE, x: 220, y: 20 },
+  { id: 't4', name: 'Booth A', seats: 6, capacity: 6, status: TableStatus.RESERVED, x: 20, y: 150 },
+  { id: 't5', name: 'Booth B', seats: 6, capacity: 6, status: TableStatus.DIRTY, x: 20, y: 280 },
+  { id: 't6', name: 'Bar 1', seats: 1, capacity: 1, status: TableStatus.AVAILABLE, x: 300, y: 150 },
+  { id: 't7', name: 'Bar 2', seats: 1, capacity: 1, status: TableStatus.AVAILABLE, x: 300, y: 200 },
 ];
 
 export const INITIAL_RESERVATIONS: Reservation[] = [
