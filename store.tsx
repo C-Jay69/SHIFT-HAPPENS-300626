@@ -229,6 +229,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     await loadFromApi();
   };
 
+  // Debounced refresh to batch multiple realtime events
+  const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const triggerRefresh = useCallback(() => {
+    if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+    refreshDebounceRef.current = setTimeout(() => {
+      loadFromApi();
+      refreshDebounceRef.current = null;
+    }, 500);
+  }, []);
+
   useEffect(() => {
     if (api.getToken()) {
       // Best-effort refresh of the stored session.
@@ -248,13 +258,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!api.getToken()) return;
     connectRealtime();
     const unsubs = [
-      onRealtime('order:created', () => loadFromApi()),
-      onRealtime('order:status', () => loadFromApi()),
-      onRealtime('table:updated', () => loadFromApi()),
+      onRealtime('order:created', triggerRefresh),
+      onRealtime('order:status', triggerRefresh),
+      onRealtime('table:updated', triggerRefresh),
     ];
-    return () => unsubs.forEach((u) => u());
+    return () => {
+      unsubs.forEach((u) => u());
+      if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser]);
+  }, [authUser, triggerRefresh]);
 
   const login = async (email: string, password: string) => {
     const data = await api.post<{ token: string; user: AuthUser }>('/auth/login', { email, password });
