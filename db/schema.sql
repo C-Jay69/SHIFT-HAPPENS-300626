@@ -524,6 +524,62 @@ CREATE TABLE service_credentials (
 CREATE INDEX idx_service_credentials_user ON service_credentials(user_id);
 
 -- ============================================================================
+-- TIER 3: DYNAMIC PRICING / SOCIAL AUTOMATION / HEALTH & SAFETY (HACCP)
+-- ============================================================================
+
+-- Demand-based pricing rules. Multipliers stack multiplicatively when several
+-- rules match the same item/time. config examples:
+--   peak_hours / happy_hour: {"start":"17:00","end":"21:30","days":[3,4,5,6]}
+--   weekend:                {"days":[5,6]}
+--   low_stock:               {"ingredient_id":"<uuid>"}  (empty = any recipe
+--                        ingredient at/below its reorder threshold)
+CREATE TABLE IF NOT EXISTS pricing_rules (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        TEXT NOT NULL,
+  type        TEXT NOT NULL CHECK (type IN ('peak_hours','happy_hour','weekend','low_stock')),
+  multiplier  NUMERIC(4,2) NOT NULL CHECK (multiplier > 0 AND multiplier < 10),
+  config      JSONB NOT NULL DEFAULT '{}'::jsonb,
+  active      BOOLEAN NOT NULL DEFAULT true,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Social media automation: drafted / scheduled / published posts.
+CREATE TABLE IF NOT EXISTS social_posts (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  restaurant_id UUID REFERENCES restaurants(id) ON DELETE CASCADE,
+  platform      TEXT NOT NULL DEFAULT 'generic',      -- instagram | facebook | x | generic
+  content       TEXT NOT NULL,
+  source        TEXT NOT NULL DEFAULT 'manual',        -- manual | llm | template
+  status        TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','scheduled','published')),
+  scheduled_at  TIMESTAMPTZ,
+  published_at  TIMESTAMPTZ,
+  created_by    UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_social_posts_status ON social_posts(status);
+
+-- HACCP: temperature logs, cleaning checks, safety incidents.
+-- Temperature thresholds are applied at write time (cold ≤ 4 °C, hot ≥ 60 °C)
+-- and out-of-range readings are auto-flagged for follow-up.
+CREATE TABLE IF NOT EXISTS haccp_logs (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  restaurant_id UUID REFERENCES restaurants(id) ON DELETE CASCADE,
+  type          TEXT NOT NULL CHECK (type IN ('temperature','cleaning','incident')),
+  station       TEXT,
+  celsius       NUMERIC(5,1),
+  status        TEXT NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','flagged','resolved')),
+  notes         TEXT,
+  created_by    UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved_at   TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_haccp_logs_created_at ON haccp_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_haccp_logs_status     ON haccp_logs(status);
+
+-- ============================================================================
 -- SEED DATA (roles + a demo restaurant)
 -- ============================================================================
 

@@ -287,6 +287,84 @@ check('waitlist cron auto-seated the freed slot within ~60s', seated, 'still wai
 const dup = await db.query(`SELECT count(*)::int n FROM waitlist WHERE party_size = 12`);
 check('cron did NOT duplicate the party-of-12 waitlist entry', dup.rows[0].n === 1, 'got ' + dup.rows[0].n);
 
+console.log('\n[15] Dynamic pricing');
+const allDays = [0, 1, 2, 3, 4, 5, 6];
+const rule1 = await req('POST', '/api/v1/pricing/rules', { token: admin, body: { name: 'Dinner Peak', type: 'peak_hours', multiplier: 1.2, config: { start: '17:00', end: '21:00', days: allDays } } });
+check('create peak rule ×1.2 (17:00–21:00)', rule1.status === 201 && rule1.data.multiplier === 1.2, JSON.stringify(rule1.data).slice(0, 120));
+const rule2 = await req('POST', '/api/v1/pricing/rules', { token: admin, body: { name: 'Happy Hour', type: 'happy_hour', multiplier: 0.8, config: { start: '16:00', end: '17:00', days: allDays } } });
+check('create happy-hour rule ×0.8 (16:00–17:00)', rule2.status === 201, JSON.stringify(rule2.data).slice(0, 120));
+const quoteAt = async (time) => {
+  const q = await req('GET', `/api/v1/pricing/quote?date=${today}&time=${time}`, { token: admin });
+  return q.data?.items?.find((i) => i.id === smash.id);
+};
+const q1 = await quoteAt('18:00');
+check('quote @18:00 applies peak ×1.2', q1 && Math.abs(q1.effective_price - q1.base_price * 1.2) < 0.011 && q1.applied?.some((a) => a.name === 'Dinner Peak'), JSON.stringify(q1 ?? 'item missing'));
+const q2 = await quoteAt('16:30');
+check('quote @16:30 applies happy hour ×0.8', q2 && Math.abs(q2.effective_price - q2.base_price * 0.8) < 0.011, JSON.stringify(q2 ?? 'item missing'));
+const q3 = await quoteAt('12:00');
+check('quote @12:00 → base price (no rules)', q3 && q3.effective_price === q3.base_price && q3.applied === null, JSON.stringify(q3 ?? 'item missing'));
+const demand = await req('GET', '/api/v1/pricing/demand', { token: admin });
+check('demand signal (14-day buckets + top sellers)', demand.status === 200 && demand.data.window_days === 14 && Array.isArray(demand.data.top_sellers), JSON.stringify(demand.data).slice(0, 100));
+const rulesList = await req('GET', '/api/v1/pricing/rules', { token: admin });
+check('list rules (2)', rulesList.status === 200 && rulesList.data.length === 2, 'got ' + rulesList.data?.length);
+const patchRule = await req('PATCH', `/api/v1/pricing/rules/${rule1.data.id}`, { token: admin, body: { active: false } });
+check('deactivate rule via PATCH', patchRule.status === 200 && patchRule.data.active === false, JSON.stringify(patchRule.data).slice(0, 80));
+const q4 = await quoteAt('18:00');
+check('deactivated rule no longer applied', q4 && q4.effective_price === q4.base_price, JSON.stringify(q4 ?? 'item missing'));
+await req('DELETE', `/api/v1/pricing/rules/${rule1.data.id}`, { token: admin });
+await req('DELETE', `/api/v1/pricing/rules/${rule2.data.id}`, { token: admin });
+const rulesAfter = await req('GET', '/api/v1/pricing/rules', { token: admin });
+check('rules cleaned up (0 left)', rulesAfter.data.length === 0, 'got ' + rulesAfter.data?.length);
+
+console.log('\n[16] Food cost intelligence');
+const fcItems = await req('GET', '/api/v1/food-cost/items', { token: admin });
+check('per-item costs + margins (4 items)', fcItems.status === 200 && fcItems.data.length === 4 && fcItems.data.every((i) => typeof i.food_cost === 'number' && typeof i.margin_pct === 'number'), JSON.stringify(fcItems.data).slice(0, 200));
+const smashCost = fcItems.data.find((i) => i.id === smash.id);
+check('smash burger food cost > 0', !!smashCost && smashCost.food_cost > 0, JSON.stringify(smashCost ?? 'missing'));
+const fcSum = await req('GET', '/api/v1/food-cost/summary', { token: admin });
+check('summary: revenue/COGS/waste (7d)', fcSum.status === 200 && fcSum.data.revenue >= 0 && fcSum.data.cogs >= 0 && Array.isArray(fcSum.data.top_waste), JSON.stringify(fcSum.data).slice(0, 150));
+check('summary: cheddar waste (81u from section [4]) captured', fcSum.data.top_waste.some((w) => w.name === 'Cheddar Cheese' && w.cost > 0), JSON.stringify(fcSum.data.top_waste));
+const fcSugg = await req('GET', '/api/v1/food-cost/suggestions?target=90', { token: admin });
+check('price suggestions at 90% margin target', fcSugg.status === 200 && Array.isArray(fcSugg.data.suggestions) && fcSugg.data.suggestions.every((s) => s.suggested_price >= s.current_price), JSON.stringify(fcSugg.data).slice(0, 150));
+
+console.log('\n[17] Employee retention analytics');
+const ret = await req('GET', '/api/v1/retention/overview', { token: admin });
+check('retention overview (4 active staff)', ret.status === 200 && ret.data.staff.length === 4, 'got ' + ret.data?.staff?.length);
+const s0 = ret.data.staff?.[0];
+check('risk model fields present (score/level/factors)', s0 && typeof s0.risk_score === 'number' && ['low', 'medium', 'high'].includes(s0.risk_level) && Array.isArray(s0.factors) && typeof s0.weekly_hours_avg === 'number', JSON.stringify(s0).slice(0, 180));
+check('aggregate (headcount/at-risk/avg tenure)', ret.data.aggregate.headcount === 4 && typeof ret.data.aggregate.avg_risk_score === 'number' && typeof ret.data.aggregate.avg_tenure_days === 'number', JSON.stringify(ret.data.aggregate));
+
+console.log('\n[18] Social media automation');
+const sPost = await req('POST', '/api/v1/social/posts', { token: admin, body: { platform: 'instagram', content: 'Smoke test post 🍔' } });
+check('create draft post', sPost.status === 201 && sPost.data.status === 'draft', JSON.stringify(sPost.data).slice(0, 120));
+const futureIso = new Date(Date.now() + 3600e3).toISOString().replace(/\.\d{3}Z$/, 'Z');
+const sPost2 = await req('POST', '/api/v1/social/posts', { token: admin, body: { platform: 'x', content: 'Scheduled smoke post', scheduledAt: futureIso } });
+check('future-dated post auto-scheduled', sPost2.status === 201 && sPost2.data.status === 'scheduled', JSON.stringify(sPost2.data).slice(0, 120));
+const sGen = await req('POST', '/api/v1/social/generate', { token: admin, body: {} });
+check('auto-generate → 3 template drafts (no LLM key)', sGen.status === 201 && sGen.data.source === 'template' && sGen.data.posts.length === 3, JSON.stringify(sGen.data).slice(0, 120));
+const sPub = await req('POST', `/api/v1/social/posts/${sPost.data.id}/publish`, { token: admin, body: {} });
+check('publish → published_at stamped', sPub.status === 200 && sPub.data.status === 'published' && !!sPub.data.published_at, JSON.stringify(sPub.data).slice(0, 120));
+const sStats = await req('GET', '/api/v1/social/stats', { token: admin });
+check('stats: 1 published / 1 scheduled / 3 drafts', sStats.status === 200 && sStats.data.by_status.published === 1 && sStats.data.by_status.scheduled === 1 && sStats.data.by_status.draft === 3, JSON.stringify(sStats.data));
+const sDel = await req('DELETE', `/api/v1/social/posts/${sPost2.data.id}`, { token: admin });
+check('delete scheduled post', sDel.status === 200, JSON.stringify(sDel.data));
+
+console.log('\n[19] Health & safety (HACCP)');
+const h1 = await req('POST', '/api/v1/haccp/logs', { token: admin, body: { type: 'temperature', station: 'Walk-in fridge', celsius: 7.5 } });
+check('cold storage 7.5°C → auto-flagged (>4°C)', h1.status === 201 && h1.data.status === 'flagged', JSON.stringify(h1.data).slice(0, 150));
+const h2 = await req('POST', '/api/v1/haccp/logs', { token: admin, body: { type: 'temperature', station: 'Walk-in fridge', celsius: 3.2 } });
+check('cold storage 3.2°C → ok', h2.status === 201 && h2.data.status === 'ok', JSON.stringify(h2.data).slice(0, 120));
+const h3 = await req('POST', '/api/v1/haccp/logs', { token: admin, body: { type: 'temperature', station: 'Hot line', celsius: 65 } });
+check('hot holding 65°C → ok (≥60°C)', h3.status === 201 && h3.data.status === 'ok', JSON.stringify(h3.data).slice(0, 120));
+const h4 = await req('POST', '/api/v1/haccp/logs', { token: admin, body: { type: 'incident', station: 'Kitchen', notes: 'Slip hazard reported' } });
+check('incident log → flagged for follow-up', h4.status === 201 && h4.data.status === 'flagged', JSON.stringify(h4.data).slice(0, 120));
+const hSum = await req('GET', '/api/v1/haccp/summary', { token: admin });
+check('summary: 2 open flags + thresholds', hSum.status === 200 && hSum.data.open_flags === 2 && hSum.data.threshold_cold_max_c === 4, JSON.stringify(hSum.data).slice(0, 120));
+const hRes = await req('PATCH', `/api/v1/haccp/logs/${h1.data.id}`, { token: admin, body: { status: 'resolved' } });
+check('resolve flag → resolved_at stamped', hRes.status === 200 && hRes.data.status === 'resolved' && !!hRes.data.resolved_at, JSON.stringify(hRes.data).slice(0, 120));
+const hSum2 = await req('GET', '/api/v1/haccp/summary', { token: admin });
+check('open flags now 1', hSum2.data.open_flags === 1, 'got ' + hSum2.data.open_flags);
+
 await db.end();
 console.log(`\n================ RESULT: ${passed} passed, ${failed} failed ================`);
 process.exit(failed ? 1 : 0);
