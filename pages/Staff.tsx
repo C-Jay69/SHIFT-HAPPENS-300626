@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api.ts';
 import { CalendarDays, Clock, Plus, X, UserPlus, LogIn, LogOut } from 'lucide-react';
+import TrainingPanel from '../components/TrainingPanel.tsx';
 
 interface StaffMember {
   id: string;
@@ -250,6 +251,9 @@ const Staff = () => {
           </div>
         </div>
       )}
+
+      {/* Training & certifications */}
+      <TrainingPanel />
     </div>
   );
 };

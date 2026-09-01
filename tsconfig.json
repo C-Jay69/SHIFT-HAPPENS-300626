@@ -30,9 +30,6 @@
     "node_modules",
     "dist",
     "public",
-    "server",
-    "packages",
-    "laravel-restaurant-main",
-    "tastyigniter-setup-4.0.0"
+    "server"
   ]
 }

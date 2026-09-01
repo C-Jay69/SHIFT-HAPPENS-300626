@@ -7,6 +7,7 @@ import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { stripeWebhookHandler, paymentIntentRouter } from './lib/stripe.js';
 import { initRealtime } from './lib/realtime.js';
+import { startWaitlistCron } from './lib/waitlist.js';
 import { authRouter } from './routes/auth.js';
 import { guestsRouter } from './routes/guests.js';
 import { reservationsRouter } from './routes/reservations.js';
@@ -20,6 +21,14 @@ import { aiRouter } from './routes/ai.js';
 import { knowledgeBaseRouter } from './routes/knowledgeBase.js';
 import { voiceRouter } from './routes/voice.js';
 import { integrationsRouter } from './routes/integrations.js';
+import { pricingRouter } from './routes/pricing.js';
+import { foodCostRouter } from './routes/foodCost.js';
+import { retentionRouter } from './routes/retention.js';
+import { socialRouter } from './routes/social.js';
+import { haccpRouter } from './routes/haccp.js';
+import { financeRouter } from './routes/finance.js';
+import { trainingRouter } from './routes/training.js';
+import { vendorsRouter } from './routes/vendors.js';
 import { errorHandler, notFound } from './middleware/error.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -48,6 +57,14 @@ app.use('/api/v1/knowledge-base', knowledgeBaseRouter);
 app.use('/api/v1/voice', voiceRouter);
 app.use('/api/v1/integrations', integrationsRouter);
 app.use('/api/v1/stripe/payment-intents', paymentIntentRouter);
+app.use('/api/v1/pricing', pricingRouter);
+app.use('/api/v1/food-cost', foodCostRouter);
+app.use('/api/v1/retention', retentionRouter);
+app.use('/api/v1/social', socialRouter);
+app.use('/api/v1/haccp', haccpRouter);
+app.use('/api/v1/finance', financeRouter);
+app.use('/api/v1/training', trainingRouter);
+app.use('/api/v1/vendors', vendorsRouter);
 
 // In production the frontend build (root/dist) is served by this same process,
 // so a single PORT serves the entire platform.
@@ -63,6 +80,7 @@ app.use(errorHandler);
 const PORT = Number(process.env.PORT ?? 4000);
 const server = createServer(app);
 initRealtime(server);
+startWaitlistCron();
 
 server.listen(PORT, () => {
   console.log(`🚀 SHIFT HAPPENS! API listening on http://0.0.0.0:${PORT}`);

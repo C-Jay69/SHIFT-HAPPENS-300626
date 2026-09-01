@@ -1,0 +1,23 @@
+# Keep the Docker image lean: only the runtime app is built into the image.
+.git
+.gitignore
+.github
+node_modules
+server/node_modules
+dist
+server/dist
+*.log
+npm-debug.log*
+
+# Docs & design assets
+docs
+design.md
+*.md
+
+# Environment files are injected at runtime, never baked in
+.env
+.env.*
+!.env.example
+
+# Test tooling / platform files not needed at runtime
+smoke-test.mjs

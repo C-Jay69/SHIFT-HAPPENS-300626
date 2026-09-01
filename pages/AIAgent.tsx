@@ -5,6 +5,7 @@ import { useAppStore } from '../store.tsx';
 import {
   Bot, Send, Loader2, Sparkles, Phone, PhoneCall, CheckCircle2,
   MessageSquare, Database, Trash2, Plus, BookOpen, Radio, RefreshCw, X, Pencil,
+  Star, Quote, TrendingUp,
 } from 'lucide-react';
 
 interface CallLog {
@@ -43,7 +44,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 const AIAgent = () => {
-  const [tab, setTab] = useState<'chat' | 'phone' | 'kb'>('chat');
+  const [tab, setTab] = useState<'chat' | 'phone' | 'kb' | 'reviews'>('chat');
   const { systemPrompt } = useAppStore();
 
   return (
@@ -61,6 +62,7 @@ const AIAgent = () => {
           { id: 'chat', icon: MessageSquare, label: 'ShiftBot Chat' },
           { id: 'phone', icon: Phone, label: 'Phone Agent' },
           { id: 'kb', icon: Database, label: 'Knowledge Base' },
+          { id: 'reviews', icon: Star, label: 'Reviews & Sentiment' },
         ] as const).map((t) => (
           <button
             key={t.id}
@@ -77,6 +79,7 @@ const AIAgent = () => {
       {tab === 'chat' && <ChatTab systemPrompt={systemPrompt} />}
       {tab === 'phone' && <PhoneTab />}
       {tab === 'kb' && <KBTab />}
+      {tab === 'reviews' && <ReviewsTab />}
     </div>
   );
 };
@@ -498,6 +501,162 @@ const KBTab = () => {
             </button>
           </div>
         </div>
+      )}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Reviews & Sentiment (Yelp Fusion)
+// ---------------------------------------------------------------------------
+
+interface ReviewReportData {
+  business: { id: string; name: string; location?: string; review_count?: number; stars?: number };
+  reviews: {
+    id: string;
+    author_name: string;
+    stars: number;
+    text: string;
+    date: string;
+    sentiment: 'positive' | 'neutral' | 'negative';
+    score: number;
+    draftResponse?: string;
+  }[];
+  summary: {
+    count: number;
+    avgStars: number;
+    breakdown: { positive: number; neutral: number; negative: number };
+    topThemes: { term: string; mentions: number; leaning: 'positive' | 'negative' }[];
+    llmSummary?: string;
+  };
+}
+
+const SENTIMENT_STYLES: Record<string, string> = {
+  positive: 'bg-green-100 text-green-700',
+  neutral: 'bg-gray-100 text-gray-500',
+  negative: 'bg-red-100 text-red-700',
+};
+
+const ReviewsTab = () => {
+  const [report, setReport] = useState<ReviewReportData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showResponse, setShowResponse] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setReport(await api.get<ReviewReportData>('/integrations/yelp/reviews?limit=30'));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-sm text-gray-500">
+          Pulls live Yelp reviews for this restaurant, scores sentiment, surfaces themes, and drafts responses.
+        </p>
+        <button
+          onClick={load}
+          disabled={loading}
+          className="px-4 py-2 text-sm bg-shift-dark text-white rounded-lg font-bold flex items-center gap-2 hover:bg-black disabled:opacity-50"
+        >
+          {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Pull Reviews
+        </button>
+      </div>
+
+      {error && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl text-sm">
+          {error}
+          {!error.includes('YELP_API_KEY') && <span className="block text-[11px] mt-1">Make sure a Yelp business profile exists for this restaurant name/address.</span>}
+        </div>
+      )}
+
+      {report && (
+        <>
+          {/* Summary */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h3 className="font-bold text-lg flex items-center gap-2"><Star className="text-shift-amber" size={18} /> {report.business.name}</h3>
+                <p className="text-xs text-gray-400">{report.business.location ?? ''}{report.business.review_count != null ? ` · ${report.business.review_count} total reviews` : ''}</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-shift-dark">{report.summary.avgStars}★</p>
+                  <p className="text-[10px] text-gray-400 uppercase font-bold">Avg ({report.summary.count})</p>
+                </div>
+                <div className="flex gap-2">
+                  {(['positive', 'neutral', 'negative'] as const).map((s) => (
+                    <span key={s} className={`text-[10px] font-bold px-2 py-1 rounded-full ${SENTIMENT_STYLES[s]}`}>
+                      {s}: {report.summary.breakdown[s]}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {report.summary.llmSummary && (
+              <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-900 flex gap-3">
+                <Sparkles size={16} className="text-shift-blue shrink-0 mt-0.5" />
+                <p>{report.summary.llmSummary}</p>
+              </div>
+            )}
+
+            {report.summary.topThemes.length > 0 && (
+              <div className="mt-4">
+                <p className="text-[10px] font-bold uppercase text-gray-400 mb-2 flex items-center gap-1"><TrendingUp size={12} /> Recurring themes</p>
+                <div className="flex flex-wrap gap-2">
+                  {report.summary.topThemes.map((t) => (
+                    <span key={t.term} className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                      t.leaning === 'negative' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'
+                    }`}>
+                      {t.term} ×{t.mentions}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Review list */}
+          <div className="grid md:grid-cols-2 gap-3">
+            {report.reviews.map((r) => (
+              <div key={r.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm">{r.author_name}</span>
+                    <span className="text-shift-amber text-xs">{'★'.repeat(Math.round(r.stars))}<span className="text-gray-200">{'★'.repeat(5 - Math.round(r.stars))}</span></span>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${SENTIMENT_STYLES[r.sentiment]}`}>{r.sentiment.toUpperCase()}</span>
+                </div>
+                <p className="text-xs text-gray-500 flex gap-2"><Quote size={12} className="shrink-0 text-gray-300" /> {r.text}</p>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[10px] text-gray-300">{new Date(r.date).toLocaleDateString()}</span>
+                  {r.draftResponse && (
+                    <button
+                      onClick={() => setShowResponse(showResponse === r.id ? null : r.id)}
+                      className="text-[10px] font-bold text-shift-blue hover:underline"
+                    >
+                      {showResponse === r.id ? 'Hide draft reply' : 'Draft reply'}
+                    </button>
+                  )}
+                </div>
+                {showResponse === r.id && r.draftResponse && (
+                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600 font-mono whitespace-pre-wrap">
+                    {r.draftResponse}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

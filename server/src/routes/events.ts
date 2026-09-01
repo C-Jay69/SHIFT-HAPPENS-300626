@@ -3,6 +3,11 @@ import { z } from 'zod';
 import { pool } from '../db.js';
 import { requireAuth, currentUser } from '../middleware/auth.js';
 import { ApiError } from '../middleware/error.js';
+import {
+  docusignConfigured,
+  sendContractForSignature,
+  refreshContractStatus,
+} from '../lib/docusign.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -118,11 +123,38 @@ router.post('/proposals/:id/accept', async (req, res, next) => {
        VALUES ($1, $2) RETURNING *`,
       [rows[0].id, rows[0].total_amount * 0.2],
     );
-    res.status(201).json({ proposal: rows[0], contract: contracts[0] });
+
+    // Kick off e-signature when DocuSign is configured (fire-and-forget —
+    // acceptance must not depend on DocuSign availability).
+    const contract = contracts[0];
+    void (async () => {
+      try {
+        if (!docusignConfigured()) return;
+        await sendContractForSignature(String(contract.id));
+        console.log(`[events] Contract ${String(contract.id).slice(0, 8)} sent for signature.`);
+      } catch (err) {
+        console.warn('[events] DocuSign auto-send failed:', err);
+      }
+    })();
+
+    res.status(201).json({ proposal: rows[0], contract });
   } catch (e) {
     next(e);
   }
 });
+
+// Lazily refresh DocuSign envelope states so the UI shows live signatures
+// without waiting for a background poller (bounded to 3 per request).
+async function refreshSentContracts(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await Promise.allSettled(
+    ids.slice(0, 3).map((id) => refreshContractStatus(id)),
+  ).then((results) => {
+    for (const r of results) {
+      if (r.status === 'rejected') console.warn('[events] DocuSign refresh failed:', r.reason);
+    }
+  });
+}
 
 router.get('/contracts', async (req, res, next) => {
   try {
@@ -136,7 +168,57 @@ router.get('/contracts', async (req, res, next) => {
         ORDER BY c.created_at DESC`,
       [user.restaurantId],
     );
+    if (docusignConfigured()) {
+      await refreshSentContracts(rows.filter((c) => c.docusign_status === 'sent').map((c) => String(c.id)));
+      const refreshed = await pool.query(
+        `SELECT c.*, p.total_amount, l.contact_name, l.event_date, l.event_type
+           FROM event_contracts c
+           JOIN event_proposals p ON p.id = c.proposal_id
+           JOIN event_leads l ON l.id = p.lead_id
+          WHERE l.restaurant_id = $1
+          ORDER BY c.created_at DESC`,
+        [user.restaurantId],
+      );
+      return res.json(refreshed.rows);
+    }
     res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Send an existing contract for signature (manual trigger / retry).
+router.post('/contracts/:id/send-docusign', async (_req, res, next) => {
+  try {
+    if (!docusignConfigured()) throw new ApiError(503, 'DocuSign is not configured. Set DOCUSIGN_ACCESS_TOKEN.');
+    const envelopeId = await sendContractForSignature(_req.params.id);
+    res.json({ envelopeId, status: 'sent' });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Poll one envelope now and persist the outcome.
+router.post('/contracts/:id/refresh-docusign', async (_req, res, next) => {
+  try {
+    if (!docusignConfigured()) throw new ApiError(503, 'DocuSign is not configured.');
+    const state = await refreshContractStatus(_req.params.id);
+    if (!state) throw new ApiError(404, 'Contract has no DocuSign envelope — send it first');
+    res.json(state);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Record deposit payment.
+router.post('/contracts/:id/deposit-paid', async (_req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `UPDATE event_contracts SET deposit_paid = true WHERE id = $1 RETURNING *`,
+      [_req.params.id],
+    );
+    if (!rows[0]) throw new ApiError(404, 'Contract not found');
+    res.json(rows[0]);
   } catch (e) {
     next(e);
   }
