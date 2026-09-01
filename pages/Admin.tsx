@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store.tsx';
 import { MenuItem } from '../types.ts';
 import { api } from '../services/api.ts';
+import FinancePanel from '../components/FinancePanel.tsx';
 import { Lock, Save, Plus, Trash2, AlertTriangle, Activity, Database, Bot, Settings, RefreshCcw, Check, X, LogOut, Calendar, Plug, ExternalLink } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 
@@ -22,7 +23,7 @@ const Admin = () => {
   
   // Tabs (INTEGRATIONS opens directly from the Google OAuth callback URL)
   const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'MENU' | 'AI' | 'SYSTEM' | 'INTEGRATIONS'>(
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'MENU' | 'AI' | 'SYSTEM' | 'INTEGRATIONS' | 'FINANCE'>(
     () => (searchParams.get('tab') === 'INTEGRATIONS' ? 'INTEGRATIONS' : 'DASHBOARD'),
   );
   const gcalConnected = searchParams.get('gcal') === 'connected';
@@ -103,7 +104,7 @@ const Admin = () => {
            </p>
         </div>
         <div className="flex gap-2 mt-4 md:mt-0">
-           {['DASHBOARD', 'MENU', 'AI', 'INTEGRATIONS', 'SYSTEM'].map(tab => (
+           {['DASHBOARD', 'MENU', 'AI', 'INTEGRATIONS', 'FINANCE', 'SYSTEM'].map(tab => (
              <button
                key={tab}
                onClick={() => setActiveTab(tab as any)}
@@ -388,6 +389,11 @@ const Admin = () => {
         {/* INTEGRATIONS TAB */}
         {activeTab === 'INTEGRATIONS' && (
           <IntegrationsTab gcalConnected={gcalConnected} />
+        )}
+
+        {/* FINANCE TAB */}
+        {activeTab === 'FINANCE' && (
+          <FinancePanel />
         )}
 
         {/* SYSTEM TAB */}

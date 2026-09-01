@@ -26,6 +26,9 @@ import { foodCostRouter } from './routes/foodCost.js';
 import { retentionRouter } from './routes/retention.js';
 import { socialRouter } from './routes/social.js';
 import { haccpRouter } from './routes/haccp.js';
+import { financeRouter } from './routes/finance.js';
+import { trainingRouter } from './routes/training.js';
+import { vendorsRouter } from './routes/vendors.js';
 import { errorHandler, notFound } from './middleware/error.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -59,6 +62,9 @@ app.use('/api/v1/food-cost', foodCostRouter);
 app.use('/api/v1/retention', retentionRouter);
 app.use('/api/v1/social', socialRouter);
 app.use('/api/v1/haccp', haccpRouter);
+app.use('/api/v1/finance', financeRouter);
+app.use('/api/v1/training', trainingRouter);
+app.use('/api/v1/vendors', vendorsRouter);
 
 // In production the frontend build (root/dist) is served by this same process,
 // so a single PORT serves the entire platform.

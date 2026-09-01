@@ -580,6 +580,92 @@ CREATE INDEX IF NOT EXISTS idx_haccp_logs_created_at ON haccp_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_haccp_logs_status     ON haccp_logs(status);
 
 -- ============================================================================
+-- TIER 4: EMBEDDED FINANCE / TRAINING SYSTEM / VENDOR MARKETPLACE
+-- ============================================================================
+
+-- Embedded finance: pay advances + operating expenses.
+CREATE TABLE IF NOT EXISTS finance_advances (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  staff_id     UUID NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  amount       NUMERIC(10,2) NOT NULL CHECK (amount > 0),
+  reason       TEXT,
+  status       TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','repaid','rejected')),
+  requested_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  approved_at  TIMESTAMPTZ,
+  repaid_at    TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_finance_advances_staff ON finance_advances(staff_id);
+
+CREATE TABLE IF NOT EXISTS finance_expenses (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  restaurant_id UUID REFERENCES restaurants(id) ON DELETE CASCADE,
+  category      TEXT NOT NULL,                -- supplies | utilities | maintenance | marketing | payroll | other
+  vendor        TEXT,
+  amount        NUMERIC(10,2) NOT NULL CHECK (amount >= 0),
+  notes         TEXT,
+  recorded_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_finance_expenses_category ON finance_expenses(category);
+
+-- Training system: courses (with JSONB quiz) + per-staff enrollments.
+CREATE TABLE IF NOT EXISTS training_courses (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title       TEXT NOT NULL,
+  category    TEXT NOT NULL DEFAULT 'safety',   -- safety | pos | service | management | custom
+  description TEXT,
+  duration_min INTEGER NOT NULL DEFAULT 30,
+  required    BOOLEAN NOT NULL DEFAULT false,
+  quiz        JSONB NOT NULL DEFAULT '[]'::jsonb, -- [{q, options[4], answer}]
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS training_enrollments (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  staff_id     UUID NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  course_id    UUID NOT NULL REFERENCES training_courses(id) ON DELETE CASCADE,
+  progress     INTEGER NOT NULL DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
+  score        INTEGER,                          -- last quiz score 0-100
+  completed_at TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (staff_id, course_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_training_enrollments_staff ON training_enrollments(staff_id);
+
+-- Vendor marketplace: products per supplier + purchase orders.
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS category TEXT;
+
+CREATE TABLE IF NOT EXISTS vendor_products (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  unit        TEXT NOT NULL,
+  unit_cost   NUMERIC(10,2) NOT NULL CHECK (unit_cost >= 0),
+  min_order   NUMERIC(12,3) NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_vendor_products_supplier ON vendor_products(supplier_id);
+
+CREATE TABLE IF NOT EXISTS vendor_orders (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+  status      TEXT NOT NULL DEFAULT 'sent' CHECK (status IN ('draft','sent','received','cancelled')),
+  items       JSONB NOT NULL DEFAULT '[]'::jsonb, -- [{product_id, name, qty, unit_cost}]
+  total       NUMERIC(10,2) NOT NULL DEFAULT 0,
+  notes       TEXT,
+  ordered_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_vendor_orders_supplier ON vendor_orders(supplier_id);
+
+-- ============================================================================
 -- SEED DATA (roles + a demo restaurant)
 -- ============================================================================
 
