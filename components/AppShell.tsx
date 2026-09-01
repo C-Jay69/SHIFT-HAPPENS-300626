@@ -1,9 +1,11 @@
 import React, { useState, Suspense, lazy, ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { Menu, X, Bell, BellOff, LogOut, Settings, HelpCircle, ChevronRight, UserCircle, Shield, LayoutDashboard, Utensils, Package, Calendar, Users, ChefHat, Bot, Settings as SettingsIcon, BarChart3, Building2 } from 'lucide-react';
+import { Menu, X, Bell, BellOff, LogOut, Settings, HelpCircle, ChevronRight, UserCircle, Shield, LayoutDashboard, Utensils, Package, Calendar, Users, ChefHat, Bot, Settings as SettingsIcon, BarChart3, Building2, Wifi, WifiOff } from 'lucide-react';
 import { useAppStore } from '../store.tsx';
 import Sidebar from './Sidebar.tsx';
 import RoleSwitcher from './RoleSwitcher.tsx';
+import { useConnectionStatus } from '../services/realtime.ts';
+import { ToastProvider } from './Toast.tsx';
 
 const Dashboard = lazy(() => import('../pages/Dashboard.tsx'));
 const POS = lazy(() => import('../pages/POS.tsx'));
@@ -56,46 +58,63 @@ const TopBar = ({
   onLogout: () => void;
   onOpenSettings: () => void;
   onOpenHelp: () => void;
-}) => (
-  <header className="hidden md:flex items-center justify-between h-16 px-6 bg-[#0a0a0a] border-b border-[#1e1e1e] sticky top-0 z-20">
-    <div className="flex items-center gap-4">
-      <button onClick={onOpenSidebar} className="p-2 hover:bg-[#1e1e1e] rounded-lg">
-        <Menu size={24} />
-      </button>
-      <div className="hidden lg:block">
-        <h1 className="font-bold font-mono text-lg text-white">SHIFT<span className="text-shift-blue">HAPPENS</span></h1>
-        <p className="text-xs text-gray-500">Restaurant Operations Platform</p>
-      </div>
-    </div>
+}) => {
+  const connectionStatus = useConnectionStatus();
+  const isConnected = connectionStatus === 'connected';
 
-    <div className="flex items-center gap-4">
-      <RoleSwitcher className="mr-2" />
-      
-      <div className="hidden lg:flex items-center gap-2">
-        <button className="relative p-2 hover:bg-[#1e1e1e] rounded-lg" aria-label="Notifications">
-          <Bell size={20} />
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">3</span>
+  return (
+    <header className="hidden md:flex items-center justify-between h-16 px-6 bg-[#0a0a0a] border-b border-[#1e1e1e] sticky top-0 z-20">
+      <div className="flex items-center gap-4">
+        <button onClick={onOpenSidebar} className="p-2 hover:bg-[#1e1e1e] rounded-lg">
+          <Menu size={24} />
         </button>
-        <button className="p-2 hover:bg-[#1e1e1e] rounded-lg" aria-label="Settings" onClick={onOpenSettings}>
-          <Settings size={20} />
-        </button>
-        <button className="p-2 hover:bg-[#1e1e1e] rounded-lg" aria-label="Help" onClick={onOpenHelp}>
-          <HelpCircle size={20} />
-        </button>
-      </div>
-
-      <div className="flex items-center gap-3 pl-4 border-l border-[#1e1e1e]">
-        <div className="text-right hidden sm:block">
-          <p className="font-bold text-sm text-white">{user?.name || 'Guest'}</p>
-          <p className="text-xs text-gray-500 capitalize">{user?.role || 'server'}</p>
-        </div>
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">
-          {user?.name?.charAt(0) || 'U'}
+        <div className="hidden lg:block">
+          <h1 className="font-bold font-mono text-lg text-white">SHIFT<span className="text-shift-blue">HAPPENS</span></h1>
+          <p className="text-xs text-gray-500">Restaurant Operations Platform</p>
         </div>
       </div>
-    </div>
-  </header>
-);
+
+      <div className="flex items-center gap-4">
+        <RoleSwitcher className="mr-2" />
+        
+        <div className="hidden lg:flex items-center gap-2">
+          <button className="relative p-2 hover:bg-[#1e1e1e] rounded-lg" aria-label="Notifications">
+            <Bell size={20} />
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">3</span>
+          </button>
+          <button className="p-2 hover:bg-[#1e1e1e] rounded-lg" aria-label="Settings" onClick={onOpenSettings}>
+            <Settings size={20} />
+          </button>
+          <button className="p-2 hover:bg-[#1e1e1e] rounded-lg" aria-label="Help" onClick={onOpenHelp}>
+            <HelpCircle size={20} />
+          </button>
+        </div>
+
+        {/* Connection Status Indicator */}
+        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1e1e1e] border border-[#333]">
+          {isConnected ? (
+            <Wifi size={16} className="text-green-500" />
+          ) : (
+            <WifiOff size={16} className="text-red-500" />
+          )}
+          <span className={`text-xs font-mono ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
+            {connectionStatus === 'connecting' ? 'Connecting...' : isConnected ? 'Live' : 'Offline'}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3 pl-4 border-l border-[#1e1e1e]">
+          <div className="text-right hidden sm:block">
+            <p className="font-bold text-sm text-white">{user?.name || 'Guest'}</p>
+            <p className="text-xs text-gray-500 capitalize">{user?.role || 'server'}</p>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">
+            {user?.name?.charAt(0) || 'U'}
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+};
 
 const MobileUserMenu = ({ 
   isOpen, 
@@ -192,83 +211,85 @@ const AppShell = ({ children }: { children: ReactNode }) => {
   } : null;
 
   return (
-    <div className="flex min-h-screen bg-[#F5F5F5]">
-      <Sidebar 
-        isOpen={isSidebarOpen} 
-        onClose={() => setIsSidebarOpen(false)}
-        currentPath={currentPath}
-        user={user}
-      />
-      
-      <div className="flex-1 flex flex-col w-full overflow-hidden">
-        <MobileHeader 
-          onOpenSidebar={() => setIsSidebarOpen(true)}
-          onOpenUserMenu={() => setIsMobileUserMenuOpen(true)}
-          title={currentNav.label}
+    <ToastProvider>
+      <div className="flex min-h-screen bg-[#F5F5F5]">
+        <Sidebar 
+          isOpen={isSidebarOpen} 
+          onClose={() => setIsSidebarOpen(false)}
+          currentPath={currentPath}
+          user={user}
         />
         
-        <TopBar
-          onOpenSidebar={() => setIsSidebarOpen(true)}
+        <div className="flex-1 flex flex-col w-full overflow-hidden">
+          <MobileHeader 
+            onOpenSidebar={() => setIsSidebarOpen(true)}
+            onOpenUserMenu={() => setIsMobileUserMenuOpen(true)}
+            title={currentNav.label}
+          />
+          
+          <TopBar
+            onOpenSidebar={() => setIsSidebarOpen(true)}
+            user={user}
+            onLogout={handleLogout}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenHelp={() => setIsHelpOpen(true)}
+          />
+
+          <main className="flex-1 p-4 md:p-8 overflow-y-auto overflow-x-hidden scroll-smooth">
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/pos" element={<POS />} />
+                <Route path="/inventory" element={<Inventory />} />
+                <Route path="/reservations" element={<Reservations />} />
+                <Route path="/floorplan" element={<FloorPlan />} />
+                <Route path="/agent" element={<AIAgent />} />
+                <Route path="/kds" element={<KDS />} />
+                <Route path="/staff" element={<Staff />} />
+                <Route path="/events" element={<Events />} />
+                <Route path="/insights" element={<Insights />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+          </main>
+        </div>
+
+        <MobileUserMenu
+          isOpen={isMobileUserMenuOpen}
+          onClose={() => setIsMobileUserMenuOpen(false)}
           user={user}
           onLogout={handleLogout}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-          onOpenHelp={() => setIsHelpOpen(true)}
+          onOpenSettings={() => { setIsSettingsOpen(true); setIsMobileUserMenuOpen(false); }}
+          onOpenHelp={() => { setIsHelpOpen(true); setIsMobileUserMenuOpen(false); }}
         />
 
-        <main className="flex-1 p-4 md:p-8 overflow-y-auto overflow-x-hidden scroll-smooth">
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/pos" element={<POS />} />
-              <Route path="/inventory" element={<Inventory />} />
-              <Route path="/reservations" element={<Reservations />} />
-              <Route path="/floorplan" element={<FloorPlan />} />
-              <Route path="/agent" element={<AIAgent />} />
-              <Route path="/kds" element={<KDS />} />
-              <Route path="/staff" element={<Staff />} />
-              <Route path="/events" element={<Events />} />
-              <Route path="/insights" element={<Insights />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
-        </main>
+        {isSettingsOpen && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6">
+              <h3 className="text-xl font-bold mb-4">Settings</h3>
+              <p className="text-gray-500 mb-4">Settings panel coming soon...</p>
+              <button onClick={() => setIsSettingsOpen(false)} className="w-full py-3 bg-shift-dark text-white rounded-xl font-bold hover:bg-black">
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {isHelpOpen && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6">
+              <h3 className="text-xl font-bold mb-4">Help & Support</h3>
+              <p className="text-gray-500 mb-4">Help center coming soon...</p>
+              <button onClick={() => setIsHelpOpen(false)} className="w-full py-3 bg-shift-dark text-white rounded-xl font-bold hover:bg-black">
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-
-      <MobileUserMenu
-        isOpen={isMobileUserMenuOpen}
-        onClose={() => setIsMobileUserMenuOpen(false)}
-        user={user}
-        onLogout={handleLogout}
-        onOpenSettings={() => { setIsSettingsOpen(true); setIsMobileUserMenuOpen(false); }}
-        onOpenHelp={() => { setIsHelpOpen(true); setIsMobileUserMenuOpen(false); }}
-      />
-
-      {isSettingsOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold mb-4">Settings</h3>
-            <p className="text-gray-500 mb-4">Settings panel coming soon...</p>
-            <button onClick={() => setIsSettingsOpen(false)} className="w-full py-3 bg-shift-dark text-white rounded-xl font-bold hover:bg-black">
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      {isHelpOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold mb-4">Help & Support</h3>
-            <p className="text-gray-500 mb-4">Help center coming soon...</p>
-            <button onClick={() => setIsHelpOpen(false)} className="w-full py-3 bg-shift-dark text-white rounded-xl font-bold hover:bg-black">
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    </ToastProvider>
   );
 };
 
