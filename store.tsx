@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { Ingredient, MenuItem, Table, Order, Reservation, OrderStatus, TableStatus, WaitlistEntry, Guest } from './types.ts';
 import { INITIAL_INGREDIENTS, INITIAL_TABLES, INITIAL_RESERVATIONS, MENU_ITEMS as INITIAL_MENU_ITEMS } from './constants.ts';
 import { api, AuthUser, ApiClientError, loadStoredUser } from './services/api.ts';

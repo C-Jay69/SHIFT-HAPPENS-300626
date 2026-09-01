@@ -16,6 +16,7 @@ const AIAgent = lazy(() => import('../pages/AIAgent.tsx'));
 const KDS = lazy(() => import('../pages/KDS.tsx'));
 const Staff = lazy(() => import('../pages/Staff.tsx'));
 const Events = lazy(() => import('../pages/Events.tsx'));
+const Insights = lazy(() => import('../pages/Insights.tsx'));
 const Admin = lazy(() => import('../pages/Admin.tsx'));
 const Login = lazy(() => import('../pages/Login.tsx'));
 
@@ -182,6 +183,7 @@ const NavigationItems = [
   { path: '/kds', label: 'KDS', icon: ChefHat, roles: ['owner', 'general_manager', 'manager', 'cook'] },
   { path: '/staff', label: 'Staff', icon: Users, roles: ['owner', 'general_manager', 'manager'] },
   { path: '/events', label: 'Events', icon: Calendar, roles: ['owner', 'general_manager', 'manager'] },
+  { path: '/insights', label: 'Insights', icon: BarChart3, roles: ['owner', 'general_manager', 'manager'] },
   { path: '/agent', label: 'ShiftBot', icon: Bot, roles: ['owner', 'general_manager', 'manager'] },
   { path: '/analytics', label: 'Analytics', icon: BarChart3, roles: ['owner', 'general_manager', 'manager'] },
   { path: '/admin', label: 'Admin', icon: SettingsIcon, roles: ['owner', 'general_manager'] },
@@ -245,6 +247,7 @@ const AppShell = ({ children }: { children: ReactNode }) => {
                 <Route path="/kds" element={<KDS />} />
                 <Route path="/staff" element={<Staff />} />
                 <Route path="/events" element={<Events />} />
+                <Route path="/insights" element={<Insights />} />
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

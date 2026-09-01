@@ -172,6 +172,9 @@ CREATE INDEX idx_reservations_guest_id    ON reservations(guest_id);
 CREATE INDEX idx_reservations_table_id    ON reservations(table_id);
 CREATE INDEX idx_reservations_status      ON reservations(status);
 
+-- Idempotent upgrade: Google Calendar sync link (added after initial release).
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS google_event_id TEXT;
+
 -- Waitlist for when no table is available at the requested slot.
 CREATE TABLE waitlist (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -333,8 +336,13 @@ CREATE TABLE orders (
   tax         NUMERIC(10,2) NOT NULL DEFAULT 0,
   tip         NUMERIC(10,2) NOT NULL DEFAULT 0,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   closed_at   TIMESTAMPTZ
 );
+
+-- Idempotent upgrade path: databases created before orders.updated_at existed
+-- gain the column on the next `npm run migrate` without a full --reset.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 
 CREATE INDEX idx_orders_status     ON orders(status);
 CREATE INDEX idx_orders_table_id   ON orders(table_id);
@@ -447,11 +455,15 @@ CREATE TABLE event_contracts (
   id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   proposal_id          UUID NOT NULL REFERENCES event_proposals(id) ON DELETE CASCADE,
   docusign_envelope_id TEXT,
+  docusign_status      TEXT,                              -- pending | sent | completed | declined | voided
   signed_at            TIMESTAMPTZ,
   deposit_amount       NUMERIC(10,2) NOT NULL DEFAULT 0,
   deposit_paid         BOOLEAN NOT NULL DEFAULT false,
   created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Idempotent upgrade: DocuSign envelope state (added after initial release).
+ALTER TABLE event_contracts ADD COLUMN IF NOT EXISTS docusign_status TEXT;
 
 -- ============================================================================
 -- AI PHONE AGENT
@@ -488,6 +500,170 @@ CREATE TABLE knowledge_base (
 CREATE INDEX idx_knowledge_base_category ON knowledge_base(category);
 CREATE INDEX idx_knowledge_base_embedding ON knowledge_base
   USING hnsw (embedding vector_cosine_ops);
+
+-- ============================================================================
+-- SERVICE CREDENTIALS (per-user OAuth tokens, e.g. Google Calendar)
+-- ============================================================================
+
+-- User-level provider credentials. Only refresh tokens are stored persistently
+-- (access tokens are short-lived and refreshed in lib/googleCalendar.ts).
+CREATE TABLE service_credentials (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  service       TEXT NOT NULL,                            -- e.g. 'google_calendar'
+  scope         TEXT,
+  access_token  TEXT,
+  refresh_token TEXT,
+  expires_at    TIMESTAMPTZ,
+  raw           JSONB NOT NULL DEFAULT '{}'::jsonb,       -- provider-specific extras
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, service)
+);
+
+CREATE INDEX idx_service_credentials_user ON service_credentials(user_id);
+
+-- ============================================================================
+-- TIER 3: DYNAMIC PRICING / SOCIAL AUTOMATION / HEALTH & SAFETY (HACCP)
+-- ============================================================================
+
+-- Demand-based pricing rules. Multipliers stack multiplicatively when several
+-- rules match the same item/time. config examples:
+--   peak_hours / happy_hour: {"start":"17:00","end":"21:30","days":[3,4,5,6]}
+--   weekend:                {"days":[5,6]}
+--   low_stock:               {"ingredient_id":"<uuid>"}  (empty = any recipe
+--                        ingredient at/below its reorder threshold)
+CREATE TABLE IF NOT EXISTS pricing_rules (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        TEXT NOT NULL,
+  type        TEXT NOT NULL CHECK (type IN ('peak_hours','happy_hour','weekend','low_stock')),
+  multiplier  NUMERIC(4,2) NOT NULL CHECK (multiplier > 0 AND multiplier < 10),
+  config      JSONB NOT NULL DEFAULT '{}'::jsonb,
+  active      BOOLEAN NOT NULL DEFAULT true,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Social media automation: drafted / scheduled / published posts.
+CREATE TABLE IF NOT EXISTS social_posts (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  restaurant_id UUID REFERENCES restaurants(id) ON DELETE CASCADE,
+  platform      TEXT NOT NULL DEFAULT 'generic',      -- instagram | facebook | x | generic
+  content       TEXT NOT NULL,
+  source        TEXT NOT NULL DEFAULT 'manual',        -- manual | llm | template
+  status        TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','scheduled','published')),
+  scheduled_at  TIMESTAMPTZ,
+  published_at  TIMESTAMPTZ,
+  created_by    UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_social_posts_status ON social_posts(status);
+
+-- HACCP: temperature logs, cleaning checks, safety incidents.
+-- Temperature thresholds are applied at write time (cold ≤ 4 °C, hot ≥ 60 °C)
+-- and out-of-range readings are auto-flagged for follow-up.
+CREATE TABLE IF NOT EXISTS haccp_logs (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  restaurant_id UUID REFERENCES restaurants(id) ON DELETE CASCADE,
+  type          TEXT NOT NULL CHECK (type IN ('temperature','cleaning','incident')),
+  station       TEXT,
+  celsius       NUMERIC(5,1),
+  status        TEXT NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','flagged','resolved')),
+  notes         TEXT,
+  created_by    UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved_at   TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_haccp_logs_created_at ON haccp_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_haccp_logs_status     ON haccp_logs(status);
+
+-- ============================================================================
+-- TIER 4: EMBEDDED FINANCE / TRAINING SYSTEM / VENDOR MARKETPLACE
+-- ============================================================================
+
+-- Embedded finance: pay advances + operating expenses.
+CREATE TABLE IF NOT EXISTS finance_advances (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  staff_id     UUID NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  amount       NUMERIC(10,2) NOT NULL CHECK (amount > 0),
+  reason       TEXT,
+  status       TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','repaid','rejected')),
+  requested_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  approved_at  TIMESTAMPTZ,
+  repaid_at    TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_finance_advances_staff ON finance_advances(staff_id);
+
+CREATE TABLE IF NOT EXISTS finance_expenses (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  restaurant_id UUID REFERENCES restaurants(id) ON DELETE CASCADE,
+  category      TEXT NOT NULL,                -- supplies | utilities | maintenance | marketing | payroll | other
+  vendor        TEXT,
+  amount        NUMERIC(10,2) NOT NULL CHECK (amount >= 0),
+  notes         TEXT,
+  recorded_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_finance_expenses_category ON finance_expenses(category);
+
+-- Training system: courses (with JSONB quiz) + per-staff enrollments.
+CREATE TABLE IF NOT EXISTS training_courses (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title       TEXT NOT NULL,
+  category    TEXT NOT NULL DEFAULT 'safety',   -- safety | pos | service | management | custom
+  description TEXT,
+  duration_min INTEGER NOT NULL DEFAULT 30,
+  required    BOOLEAN NOT NULL DEFAULT false,
+  quiz        JSONB NOT NULL DEFAULT '[]'::jsonb, -- [{q, options[4], answer}]
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS training_enrollments (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  staff_id     UUID NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  course_id    UUID NOT NULL REFERENCES training_courses(id) ON DELETE CASCADE,
+  progress     INTEGER NOT NULL DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
+  score        INTEGER,                          -- last quiz score 0-100
+  completed_at TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (staff_id, course_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_training_enrollments_staff ON training_enrollments(staff_id);
+
+-- Vendor marketplace: products per supplier + purchase orders.
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS category TEXT;
+
+CREATE TABLE IF NOT EXISTS vendor_products (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  unit        TEXT NOT NULL,
+  unit_cost   NUMERIC(10,2) NOT NULL CHECK (unit_cost >= 0),
+  min_order   NUMERIC(12,3) NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_vendor_products_supplier ON vendor_products(supplier_id);
+
+CREATE TABLE IF NOT EXISTS vendor_orders (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+  status      TEXT NOT NULL DEFAULT 'sent' CHECK (status IN ('draft','sent','received','cancelled')),
+  items       JSONB NOT NULL DEFAULT '[]'::jsonb, -- [{product_id, name, qty, unit_cost}]
+  total       NUMERIC(10,2) NOT NULL DEFAULT 0,
+  notes       TEXT,
+  ordered_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_vendor_orders_supplier ON vendor_orders(supplier_id);
 
 -- ============================================================================
 -- SEED DATA (roles + a demo restaurant)

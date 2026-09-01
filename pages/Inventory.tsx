@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '../store.tsx';
 import { AlertTriangle, ArrowDown, Search, Pencil, X, RefreshCcw, Truck, Plus, Check, Save } from 'lucide-react';
 import { Ingredient } from '../types.ts';
+import VendorsPanel from '../components/VendorsPanel.tsx';
 
 interface Supplier {
   id: string;
@@ -293,6 +294,9 @@ const Inventory = () => {
           </div>
         </div>
       )}
+
+      {/* Vendor marketplace: suppliers, products, purchase orders, source comparison */}
+      <VendorsPanel />
     </div>
   );
 };

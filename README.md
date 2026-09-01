@@ -1,29 +1,112 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# SHIFT HAPPENS! by HYDRAFORGE
 
-# Run and deploy your AI Studio app
+A comprehensive, mobile-first restaurant management platform that unifies
+**POS, Inventory, Reservations, Kitchen Display, Staff Scheduling, Events &
+Catering, and a 24/7 AI phone agent** in one modular monolith — one database,
+one port, one deploy.
 
-SHIFT HAPPENS! — a mobile-first restaurant management platform (POS, Inventory, Reservations, KDS, AI assistant).
+Built to the spec in [`SHIFT HAPPENS BUILD PROMPT.md`](SHIFT%20HAPPENS%20BUILD%20PROMPT.md).
+Architecture details live in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-## Run Locally
+## Modules
 
-**Prerequisites:** Node.js (18+) or Bun
+| Tier | Modules |
+|---|---|
+| Core (Tier 1) | Auth/RBAC · Guest CRM · Smart Reservations + Waitlist · POS (touch) · Menu + Recipes · Inventory with auto-deduction · **AI Phone Agent** (Twilio Voice + RAG) |
+| Operations (Tier 2) | Staff & Scheduling + Time Clock · Real-time Kitchen Display (socket.io) · Events & Catering pipeline · Drag-and-drop Floor Plan |
+| Intelligence (Tier 3) | Dynamic Pricing (rule engine + demand) · Food Cost Intelligence (COGS/margin/waste) · Employee Retention Analytics (churn risk) · **Review & Sentiment Engine** (Yelp) · Social Media Automation · Health & Safety (HACCP) |
+| Growth (Tier 4) | Embedded Finance (payroll, advances, expenses) · Training System (courses + quizzes + compliance) · Vendor Marketplace (suppliers, POs, auto stock-in) |
+| Platform | PWA (offline-capable POS), Stripe payments + webhooks, integration status dashboard |
 
-1. Install dependencies:
-   `npm install` (or `bun install`)
-2. Set your environment variables:
-   `cp .env.example .env` then fill in `OPENROUTER_API_KEY` (and optionally database/Stripe keys)
-3. Run the app:
-   `npm run dev`
+Everything is API-first (`/api/v1`), transactional where it matters, and
+key-gated for third-party services — the whole platform runs with **zero
+external API keys** and each key you add switches on its channel.
 
-## Production Build
+## Quickstart (local dev)
+
+```bash
+npm install
+cp .env.example .env        # set DATABASE_URL (Postgres 14+; pgvector optional)
+npm run migrate             # apply db/schema.sql
+npm run seed                # roles + admin (admin@shifthappens.test / ChangeMe123!) + demo data
+npm run dev                 # Vite SPA on :3000 (proxies /api → :4000)
+npm run dev:api             # Express API on :4000
+```
+
+Default login after seeding: **admin@shifthappens.test / ChangeMe123!**
+(override with `ADMIN_EMAIL` / `ADMIN_PASSWORD`).
+
+## Production build
+
+```bash
+npm run build        # dist/  — SPA + PWA service worker + manifest
+npm run build:api    # server/dist/ — compiled API
+```
+
+One Node process serves the API, the built SPA, and socket.io on a single
+port (`PORT`, default 4000):
+
+- **PM2:** `pm2 start ecosystem.config.cjs`
+- **Docker:** `docker compose up --build` (Postgres with pgvector + web)
+- **Bare metal / VPS:** point any reverse proxy at `:4000`
+
+Database: any PostgreSQL 14+. With the `pgvector` extension (Neon, Supabase,
+the compose image) the AI knowledge base uses vector RAG (HNSW index); without
+it the migration automatically degrades to a JSONB embedding column +
+full-text keyword search so nothing breaks.
+
+## Verify
+
+```bash
+node smoke-test.mjs
+```
+
+End-to-end suite (134 checks) against a running instance: auth + RBAC,
+connected POS sales (stock deduction, low-stock alerts, payment,
+void/reverse), KDS status updates, smart reservations (book / waitlist /
+cancel), the AI phone agent call flow, RAG search, staff clock-in/out, events
+pipeline with DocuSign contract fields, Google Calendar / Yelp unconfigured
+paths, integration status, the waitlist auto-seat cron, dynamic pricing
+quotes + rules, food cost, retention analytics, social posts, HACCP
+auto-flagging, embedded finance, training compliance, and the vendor
+marketplace (including auto stock-in on PO receipt). **It resets and reseeds
+the database first** — don't point it at a production DB.
+
+## Environment variables
+
+See [`.env.example`](.env.example) — every variable the server reads is
+documented there:
+
+- **Required:** `DATABASE_URL`, `JWT_SECRET` (or `BETTER_AUTH_SECRET`)
+- **AI:** `OPENROUTER_API_KEY` (+ optional model/base-url overrides)
+- **Payments:** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+- **Notifications:** `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_PHONE_NUMBER`, `SENDGRID_API_KEY`
+- **AI phone agent:** point your Twilio number at `POST /api/v1/voice`, set
+  `STAFF_TRANSFER_NUMBER` for human escalation, optional `VOICE_RESTAURANT_ID`
+- **Google Calendar sync:** `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` /
+  `PUBLIC_BASE_URL` (users then connect per-account from Admin → Integrations)
+- **DocuSign:** `DOCUSIGN_ACCESS_TOKEN` (+ optional `DOCUSIGN_BASE_URL` region)
+- **Yelp reviews:** `YELP_API_KEY` (Fusion)
+- **Background jobs:** `WAITLIST_CRON_MS` (default 60000, `0` disables)
+
+## Repository layout
 
 ```
-npm run build   # outputs to dist/ with PWA service worker + manifest
-npm run preview # serve the production build locally
+App.tsx / components/ / pages/   React (Vite) + Tailwind v4 frontend (PWA)
+store.tsx / services/            context store + API / socket.io clients
+db/schema.sql                    complete PostgreSQL schema (all entity groups)
+server/                          Express API: routes · lib · middleware · seed
+smoke-test.mjs                   end-to-end verification suite
+docs/ARCHITECTURE.md             architecture, API surface, deployment checklist
+docs/DESIGN_SYSTEM.md            canonical bright design system (tokens, components)
 ```
 
-The app is a PWA — installable and offline-capable once deployed to any static host.
+## Security notes
 
-> ⚠️ Never commit `.env`. It is git-ignored. Rotate any credentials that have already been committed in git history.
+- `.env` is git-ignored — never commit secrets; rotate any credentials that
+  have already leaked into history.
+- All API routes are JWT-protected with role-based permission checks
+  (`requirePermission`); Twilio webhooks are the only unauthenticated
+  endpoints (protect them by allowing Twilio's IPs at the proxy if desired).
+- Passwords are bcrypt-hashed; the seeded admin password is for development —
+  set a strong `ADMIN_PASSWORD` before first deploy.

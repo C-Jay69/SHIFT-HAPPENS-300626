@@ -14,6 +14,7 @@ const Admin = lazy(() => import('./pages/Admin.tsx'));
 const Login = lazy(() => import('./pages/Login.tsx'));
 const Staff = lazy(() => import('./pages/Staff.tsx'));
 const Events = lazy(() => import('./pages/Events.tsx'));
+const Insights = lazy(() => import('./pages/Insights.tsx'));
 
 const PageLoader = () => (
   <div className="h-full min-h-[50vh] flex items-center justify-center">
@@ -37,6 +38,7 @@ function App() {
               <Route path="/kds" element={<KDS />} />
               <Route path="/staff" element={<Staff />} />
               <Route path="/events" element={<Events />} />
+              <Route path="/insights" element={<Insights />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/login" element={<Login />} />
             </Routes>

@@ -124,6 +124,15 @@ try {
   await client.query('BEGIN');
   try {
     // Clear any previously seeded demo data (single-restaurant demo app).
+    await client.query('DELETE FROM training_enrollments');
+    await client.query('DELETE FROM training_courses');
+    await client.query('DELETE FROM vendor_orders');
+    await client.query('DELETE FROM vendor_products');
+    await client.query('DELETE FROM ingredient_suppliers');
+    await client.query('DELETE FROM suppliers');
+    await client.query('DELETE FROM finance_advances');
+    await client.query('DELETE FROM finance_expenses');
+    await client.query('DELETE FROM waitlist');
     await client.query('DELETE FROM reservations');
     await client.query('DELETE FROM guests');
     await client.query('DELETE FROM event_contracts');
@@ -241,8 +250,127 @@ try {
       );
     }
 
+    // --- Tier 4 demo data: training courses + vendor marketplace -------------
+    const TRAINING_COURSES = [
+      {
+        title: 'Food Safety 101',
+        category: 'safety',
+        description: 'Cross-contamination, temperature control, and safe storage fundamentals.',
+        duration_min: 30,
+        required: true,
+        quiz: [
+          { q: 'What is the maximum safe temperature for cold storage?', options: ['4 °C', '7 °C', '10 °C', '15 °C'], answer: 0 },
+          { q: 'How often should cold-storage temperatures be logged?', options: ['Once a week', 'Once a shift', 'Daily at open', 'Only when inspected'], answer: 1 },
+        ],
+      },
+      {
+        title: 'POS & Payment Handling',
+        category: 'pos',
+        description: 'Running the POS, voids, refunds, and cash-drawer discipline.',
+        duration_min: 45,
+        required: true,
+        quiz: [
+          { q: 'A void after payment requires…', options: ['A manager override', 'Nothing', 'A reprint only', 'A tip adjustment'], answer: 0 },
+        ],
+      },
+      {
+        title: 'Server Service Standards',
+        category: 'service',
+        description: 'Table flow, upselling, and complaint recovery.',
+        duration_min: 30,
+        required: false,
+        quiz: [],
+      },
+    ];
+    const courseIds: string[] = [];
+    for (const c of TRAINING_COURSES) {
+      const { rows } = await client.query(
+        `INSERT INTO training_courses (title, category, description, duration_min, required, quiz)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+        [c.title, c.category, c.description, c.duration_min, c.required, JSON.stringify(c.quiz)],
+      );
+      courseIds.push(rows[0].id);
+    }
+    // Enroll everyone in required courses; first staff is partway through.
+    const { rows: staffRows } = await client.query(
+      `SELECT id FROM staff WHERE restaurant_id = $1 ORDER BY created_at`,
+      [restaurantId],
+    );
+    for (const s of staffRows) {
+      for (const courseId of courseIds.slice(0, 2)) {
+        await client.query(
+          `INSERT INTO training_enrollments (staff_id, course_id, progress) VALUES ($1, $2, $3)`,
+          [s.id, courseId, s.id === staffRows[0].id ? 50 : 0],
+        );
+      }
+    }
+
+    const VENDOR_SEED = [
+      {
+        name: 'Metro Produce Co.',
+        category: 'produce',
+        email: 'orders@metroproduce.example',
+        products: [
+          { name: 'Lettuce', unit: 'heads', unitCost: 0.9, minOrder: 10 },
+          { name: 'Lime', unit: 'pcs', unitCost: 0.25, minOrder: 24 },
+        ],
+        carried: [['Lettuce', 0.9, 2], ['Lime', 0.25, 2]],
+      },
+      {
+        name: 'Summit Meats & Dairy',
+        category: 'meat & dairy',
+        email: 'sales@summitmeats.example',
+        products: [
+          { name: 'Beef Patty', unit: 'pcs', unitCost: 2.4, minOrder: 25 },
+          { name: 'Cheddar Cheese', unit: 'slices', unitCost: 0.22, minOrder: 50 },
+        ],
+        carried: [['Beef Patty', 2.4, 3], ['Cheddar Cheese', 0.22, 3], ['Brioche Bun', 0.55, 1]],
+      },
+      {
+        name: 'City Beverage Dist.',
+        category: 'beverage',
+        email: 'orders@citybev.example',
+        products: [
+          { name: 'Vodka', unit: 'bottles', unitCost: 13.5, minOrder: 6 },
+          { name: 'Ginger Beer', unit: 'cans', unitCost: 0.85, minOrder: 24 },
+        ],
+        carried: [['Vodka', 13.5, 1], ['Ginger Beer', 0.85, 1]],
+      },
+    ];
+    for (const v of VENDOR_SEED) {
+      const { rows: supRows } = await client.query(
+        `INSERT INTO suppliers (name, category, contact_email) VALUES ($1, $2, $3) RETURNING id`,
+        [v.name, v.category, v.email],
+      );
+      const supplierId = supRows[0].id as string;
+      for (const p of v.products) {
+        await client.query(
+          `INSERT INTO vendor_products (supplier_id, name, unit, unit_cost, min_order) VALUES ($1, $2, $3, $4, $5)`,
+          [supplierId, p.name, p.unit, p.unitCost, p.minOrder],
+        );
+      }
+      for (const [ingName, price, lead] of v.carried) {
+        const ing = INGREDIENTS.find((i) => i.name === ingName);
+        if (ing) {
+          const ingRow = (await client.query(`SELECT id FROM ingredients WHERE restaurant_id = $1 AND name = $2`, [restaurantId, ing.name])).rows[0];
+          if (ingRow) {
+            await client.query(
+              `INSERT INTO ingredient_suppliers (ingredient_id, supplier_id, price, lead_time_days) VALUES ($1, $2, $3, $4)`,
+              [ingRow.id, supplierId, price, lead],
+            );
+          }
+        }
+      }
+    }
+
+    // One demo expense so the finance ledger isn't empty.
+    await client.query(
+      `INSERT INTO finance_expenses (restaurant_id, category, vendor, amount, notes) VALUES ($1, 'utilities', 'City Power & Light', 240, 'August electricity')`,
+      [restaurantId],
+    );
+
     await client.query('COMMIT');
-    console.log(`✅ Demo dataset seeded: ${INGREDIENTS.length} ingredients, ${MENU_ITEMS.length} menu items, ${TABLES.length} tables, ${RESERVATIONS.length} reservations, ${STAFF.length} staff, ${EVENT_LEADS.length} event leads.`);  } catch (err) {
+    console.log(`✅ Demo dataset seeded: ${INGREDIENTS.length} ingredients, ${MENU_ITEMS.length} menu items, ${TABLES.length} tables, ${RESERVATIONS.length} reservations, ${STAFF.length} staff, ${EVENT_LEADS.length} event leads, ${TRAINING_COURSES.length} courses, ${VENDOR_SEED.length} suppliers.`);  } catch (err) {
     await client.query('ROLLBACK');
     throw err;
   }

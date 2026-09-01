@@ -1,5 +1,6 @@
 import { pool } from '../db.js';
 import { embed, fallbackVector } from './openrouter.js';
+import { hasPgVector } from './pgvector.js';
 
 export interface KnowledgeEntry {
   id: string;
@@ -21,10 +22,13 @@ export async function ingestKnowledge(
   question?: string,
 ): Promise<KnowledgeEntry> {
   const embedding = (await embed(`${question ?? ''} ${answer}`.trim())) ?? fallbackVector(answer);
+  // pgvector column: the '[...]' text casts to vector. JSONB column (vanilla
+  // Postgres hosts): the same text is stored as a JSON array.
+  const cast = (await hasPgVector()) ? '$5::vector' : '$5';
 
   const { rows } = await pool.query(
     `INSERT INTO knowledge_base (restaurant_id, category, question, answer, embedding)
-     VALUES ($1, $2, $3, $4, $5::vector)
+     VALUES ($1, $2, $3, $4, ${cast})
      ON CONFLICT DO NOTHING
      RETURNING id, category, question, answer`,
     [restaurantId, category, question ?? null, answer, JSON.stringify(embedding)],
@@ -43,7 +47,7 @@ export async function searchKnowledgeBase(
   topK = 5,
 ): Promise<KnowledgeEntry[]> {
   const embedding = await embed(query);
-  if (embedding) {
+  if (embedding && (await hasPgVector())) {
     try {
       const { rows } = await pool.query(
         `SELECT id, category, question, answer,
