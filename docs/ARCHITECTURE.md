@@ -4,11 +4,16 @@
 **Goal:** One database, clean domain boundaries, API-first, deploy-ready.
 
 > Status: **deployment-ready**. Single production process (Express serves the
-> built SPA + REST API + socket.io on one port). Tier-1 cores plus Stripe
-> payments, real-time KDS, staff scheduling, events/catering, reservation
-> confirmations (Twilio SMS + SendGrid), and an in-process waitlist cron are
-> implemented. `db/schema.sql` applies with or without the `pgvector`
-> extension (vector RAG degrades to keyword search when it's absent).
+> built SPA + REST API + socket.io on one port). All four tiers are
+> implemented: cores + operations, Tier-3 intelligence (dynamic pricing, food
+> cost, retention analytics, Yelp review sentiment, social automation, HACCP),
+> Tier-4 growth (embedded finance, training system, vendor marketplace),
+> Stripe payments, real-time KDS, events/catering with DocuSign e-signatures,
+> Google Calendar sync, reservation confirmations (Twilio SMS + SendGrid), and
+> an in-process waitlist cron. `db/schema.sql` applies with or without the
+> `pgvector` extension (vector RAG degrades to keyword search when it's
+> absent). The UI follows the canonical bright theme in
+> [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md).
 
 ---
 
@@ -17,8 +22,8 @@
 ```
 SHIFT-HAPPENS-300626/
 ├── App.tsx                 # App shell, lazy routes, mobile nav
-├── components/             # Shared UI (Sidebar, ErrorBoundary)
-├── pages/                  # Dashboard · POS · Reservations · Inventory · KDS · AIAgent · Staff · Events · Admin · Login
+├── components/             # Shared UI (Sidebar, AppShell, Training/Vendors/Finance panels)
+├── pages/                  # Dashboard · POS · Reservations · Inventory · KDS · AIAgent · Staff · Events · Insights · Admin · Login
 ├── services/               # Client-side clients (api, openrouterService, realtime)
 ├── store.tsx               # Context store: server-backed with demo fallback + realtime refresh
 ├── constants.ts / types.ts
@@ -35,9 +40,13 @@ SHIFT-HAPPENS-300626/
 │   │   ├── seed.ts         # Roles, admin, menu + recipes, demo staff/events
 │   │   ├── lib/            # payment.ts (Stripe) · realtime.ts (socket.io) · reservation.ts ·
 │   │   │                   # knowledgeBase.ts (RAG) · pgvector.ts (feature detect) ·
-│   │   │                   # notify.ts (Twilio SMS + SendGrid) · waitlist.ts (auto-seat cron)
+│   │   │                   # notify.ts (Twilio SMS + SendGrid) · waitlist.ts (auto-seat cron) ·
+│   │   │                   # googleCalendar.ts · docusign.ts · yelp.ts (Tier-3 integrations)
 │   │   ├── middleware/     # auth (JWT + RBAC), error handling
-│   │   └── routes/         # auth · staff · events · guests · reservations · menu · inventory · orders · tables · ai · knowledge-base · voice · integrations · stripe
+│   │   └── routes/         # auth · staff · events · guests · reservations · menu · inventory ·
+│   │                       # orders · tables · ai · knowledge-base · voice · integrations ·
+│   │                       # pricing · foodCost · retention · social · haccp ·
+│   │                       # finance · training · vendors · stripe
 │   └── dist/               # Compiled (npm run build:api)
 ├── ecosystem.config.cjs    # PM2 (single API process, cwd repo root)
 ├── smoke-test.mjs          # End-to-end API + workflow test (resets + reseeds first)
@@ -65,7 +74,18 @@ All routes mounted under `/api/v1` (payloads are camelCase, DB rows snake_case).
 | GET/POST | `/ai/chat` · GET `/ai/status` | ShiftBot (LLM + RAG) |
 | GET/POST | `/knowledge-base` (+ `/ingest-menu`, `/search`) | RAG source documents |
 | POST/GET | `/voice` · `/voice/turn` · GET `/voice/calls` | Twilio AI phone agent webhooks |
+| GET/POST/PATCH/DELETE | `/pricing/quote` · `/pricing/demand` · `/pricing/rules` | Dynamic pricing engine + demand signal |
+| GET | `/food-cost/items` · `/food-cost/summary` · `/food-cost/suggestions` | COGS, margin, waste, price suggestions |
+| GET | `/retention/overview` | Churn-risk analytics (score + factors per staff) |
+| GET/POST/PATCH/DELETE | `/social/posts` · `/social/generate` · `/social/stats` | Social media automation pipeline |
+| POST/GET/PATCH | `/haccp/logs` · GET `/haccp/summary` | HACCP temperature/cleaning/incident logs + auto-flags |
+| GET/POST | `/finance/payroll-summary` · `/finance/advances` (+`/approve|reject|repay`) · `/finance/expenses` (+summary) | Embedded finance |
+| GET/POST/DELETE | `/training/courses` · `/training/enroll` · `/training/progress` · GET `/training/overview` | Training + compliance |
+| GET/POST/DELETE | `/vendors` (+`/products`, `/compare`) · `/vendors/orders` (+`/receive`, `/cancel`) | Vendor marketplace + auto stock-in |
 | GET | `/integrations` | Liveness of Stripe/Twilio/SendGrid/Google/DocuSign/LLM/Yelp |
+| GET/POST | `/integrations/google-calendar/{status,authorize,callback,disconnect}` | Per-user Google OAuth2 |
+| GET | `/integrations/yelp/reviews` | Live Yelp pull + sentiment + themes |
+| POST | `/events/contracts/:id/{send-docusign,refresh-docusign,deposit-paid}` | DocuSign e-signature control |
 | GET | `/health` | Liveness (unauthenticated) |
 
 ## 3. Core Workflows (implemented)
@@ -115,9 +135,10 @@ answers from the RAG knowledge base, full transcript + outcome in `call_logs`.
 | Twilio Voice | `voice` route (call flow, booking, transfer) | ✅ key-gated |
 | Twilio SMS | `lib/notify.ts` — reservation + waitlist SMS | ✅ key-gated |
 | SendGrid | `lib/notify.ts` — reservation + waitlist email | ✅ key-gated |
-| Google Calendar / Maps / Places | calendar sync + floor plan + reviews | 🟡 env vars wired, API calls TBD |
-| DocuSign | event contracts (`DEPOSIT` 20%) | 🟡 env vars wired, API calls TBD |
-| Yelp | review sentiment in AI context | 🟡 env var wired, API calls TBD |
+| Google Calendar | `lib/googleCalendar.ts` — per-user OAuth2, event create/delete, freeBusy conflicts | ✅ key-gated (real API) |
+| DocuSign | `lib/docusign.ts` — envelope create + send + status poll, generated contract PDF | ✅ key-gated (real API) |
+| Yelp | `lib/yelp.ts` — Fusion business/review pull, sentiment, themes, drafted replies | ✅ key-gated (real API) |
+| Google Maps / Places | floor plan + location | 🟡 env vars wired, API calls TBD |
 
 All integrations are key-gated: with zero third-party keys the platform runs
 fully (POS, reservations, KDS, inventory, scheduling, RAG keyword search); each
@@ -142,10 +163,13 @@ npm run build:api  # server/dist/
   Supabase, the compose image) the AI knowledge base uses vector RAG with an
   HNSW index; without it, `migrate` automatically applies a JSONB-embedding
   variant and RAG falls back to full-text keyword search.
-- **Verify:** `node smoke-test.mjs` — resets + reseeds, then exercises 66
+- **Verify:** `node smoke-test.mjs` — resets + reseeds, then exercises 134
   end-to-end checks across auth/RBAC, POS (stock deduction, alerts, payment,
   void), KDS status, reservations (book/waitlist/cancel), the AI phone agent
-  call flow, RAG, staff clock, events, and the waitlist auto-seat cron.
+  call flow, RAG, staff clock, events + DocuSign, Google/Yelp unconfigured
+  paths, dynamic pricing, food cost, retention, social, HACCP, embedded
+  finance, training compliance, vendor marketplace, and the waitlist
+  auto-seat cron.
 
 ## 6. Deployment-Ready Checklist
 
@@ -156,7 +180,7 @@ npm run build:api  # server/dist/
 | Server `tsc` build | ✅ |
 | Schema applies fresh (with and without pgvector) + idempotent re-migrate | ✅ |
 | Seed is idempotent (safe to re-run) | ✅ |
-| E2E smoke suite (66 checks) | ✅ |
+| E2E smoke suite (134 checks) | ✅ |
 | Single-port production serving (API + SPA + socket.io) | ✅ |
 | Docker image (multi-stage, `.dockerignore`) + compose (db + web) | ✅ |
 | PM2 single-process config | ✅ |

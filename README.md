@@ -14,6 +14,8 @@ Architecture details live in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 |---|---|
 | Core (Tier 1) | Auth/RBAC · Guest CRM · Smart Reservations + Waitlist · POS (touch) · Menu + Recipes · Inventory with auto-deduction · **AI Phone Agent** (Twilio Voice + RAG) |
 | Operations (Tier 2) | Staff & Scheduling + Time Clock · Real-time Kitchen Display (socket.io) · Events & Catering pipeline · Drag-and-drop Floor Plan |
+| Intelligence (Tier 3) | Dynamic Pricing (rule engine + demand) · Food Cost Intelligence (COGS/margin/waste) · Employee Retention Analytics (churn risk) · **Review & Sentiment Engine** (Yelp) · Social Media Automation · Health & Safety (HACCP) |
+| Growth (Tier 4) | Embedded Finance (payroll, advances, expenses) · Training System (courses + quizzes + compliance) · Vendor Marketplace (suppliers, POs, auto stock-in) |
 | Platform | PWA (offline-capable POS), Stripe payments + webhooks, integration status dashboard |
 
 Everything is API-first (`/api/v1`), transactional where it matters, and
@@ -59,12 +61,16 @@ full-text keyword search so nothing breaks.
 node smoke-test.mjs
 ```
 
-End-to-end suite (66 checks) against a running instance: auth + RBAC, connected
-POS sales (stock deduction, low-stock alerts, payment, void/reverse), KDS
-status updates, smart reservations (book / waitlist / cancel), the AI phone
-agent call flow, RAG search, staff clock-in/out, events pipeline, integration
-status, and the waitlist auto-seat cron. **It resets and reseeds the database
-first** — don't point it at a production DB.
+End-to-end suite (134 checks) against a running instance: auth + RBAC,
+connected POS sales (stock deduction, low-stock alerts, payment,
+void/reverse), KDS status updates, smart reservations (book / waitlist /
+cancel), the AI phone agent call flow, RAG search, staff clock-in/out, events
+pipeline with DocuSign contract fields, Google Calendar / Yelp unconfigured
+paths, integration status, the waitlist auto-seat cron, dynamic pricing
+quotes + rules, food cost, retention analytics, social posts, HACCP
+auto-flagging, embedded finance, training compliance, and the vendor
+marketplace (including auto stock-in on PO receipt). **It resets and reseeds
+the database first** — don't point it at a production DB.
 
 ## Environment variables
 
@@ -77,6 +83,10 @@ documented there:
 - **Notifications:** `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_PHONE_NUMBER`, `SENDGRID_API_KEY`
 - **AI phone agent:** point your Twilio number at `POST /api/v1/voice`, set
   `STAFF_TRANSFER_NUMBER` for human escalation, optional `VOICE_RESTAURANT_ID`
+- **Google Calendar sync:** `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` /
+  `PUBLIC_BASE_URL` (users then connect per-account from Admin → Integrations)
+- **DocuSign:** `DOCUSIGN_ACCESS_TOKEN` (+ optional `DOCUSIGN_BASE_URL` region)
+- **Yelp reviews:** `YELP_API_KEY` (Fusion)
 - **Background jobs:** `WAITLIST_CRON_MS` (default 60000, `0` disables)
 
 ## Repository layout
@@ -88,6 +98,7 @@ db/schema.sql                    complete PostgreSQL schema (all entity groups)
 server/                          Express API: routes · lib · middleware · seed
 smoke-test.mjs                   end-to-end verification suite
 docs/ARCHITECTURE.md             architecture, API surface, deployment checklist
+docs/DESIGN_SYSTEM.md            canonical bright design system (tokens, components)
 ```
 
 ## Security notes
