@@ -172,6 +172,9 @@ CREATE INDEX idx_reservations_guest_id    ON reservations(guest_id);
 CREATE INDEX idx_reservations_table_id    ON reservations(table_id);
 CREATE INDEX idx_reservations_status      ON reservations(status);
 
+-- Idempotent upgrade: Google Calendar sync link (added after initial release).
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS google_event_id TEXT;
+
 -- Waitlist for when no table is available at the requested slot.
 CREATE TABLE waitlist (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -452,11 +455,15 @@ CREATE TABLE event_contracts (
   id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   proposal_id          UUID NOT NULL REFERENCES event_proposals(id) ON DELETE CASCADE,
   docusign_envelope_id TEXT,
+  docusign_status      TEXT,                              -- pending | sent | completed | declined | voided
   signed_at            TIMESTAMPTZ,
   deposit_amount       NUMERIC(10,2) NOT NULL DEFAULT 0,
   deposit_paid         BOOLEAN NOT NULL DEFAULT false,
   created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Idempotent upgrade: DocuSign envelope state (added after initial release).
+ALTER TABLE event_contracts ADD COLUMN IF NOT EXISTS docusign_status TEXT;
 
 -- ============================================================================
 -- AI PHONE AGENT
@@ -493,6 +500,28 @@ CREATE TABLE knowledge_base (
 CREATE INDEX idx_knowledge_base_category ON knowledge_base(category);
 CREATE INDEX idx_knowledge_base_embedding ON knowledge_base
   USING hnsw (embedding vector_cosine_ops);
+
+-- ============================================================================
+-- SERVICE CREDENTIALS (per-user OAuth tokens, e.g. Google Calendar)
+-- ============================================================================
+
+-- User-level provider credentials. Only refresh tokens are stored persistently
+-- (access tokens are short-lived and refreshed in lib/googleCalendar.ts).
+CREATE TABLE service_credentials (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  service       TEXT NOT NULL,                            -- e.g. 'google_calendar'
+  scope         TEXT,
+  access_token  TEXT,
+  refresh_token TEXT,
+  expires_at    TIMESTAMPTZ,
+  raw           JSONB NOT NULL DEFAULT '{}'::jsonb,       -- provider-specific extras
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, service)
+);
+
+CREATE INDEX idx_service_credentials_user ON service_credentials(user_id);
 
 -- ============================================================================
 -- SEED DATA (roles + a demo restaurant)

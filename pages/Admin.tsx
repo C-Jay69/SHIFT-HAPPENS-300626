@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store.tsx';
 import { MenuItem } from '../types.ts';
-import { Lock, Save, Plus, Trash2, AlertTriangle, Activity, Database, Bot, Settings, RefreshCcw, Check, X, LogOut } from 'lucide-react';
+import { api } from '../services/api.ts';
+import { Lock, Save, Plus, Trash2, AlertTriangle, Activity, Database, Bot, Settings, RefreshCcw, Check, X, LogOut, Calendar, Plug, ExternalLink } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 
 const COLORS = ['#0000FF', '#FFBF00', '#BEF754', '#FF00FF', '#00FFFF'];
@@ -19,8 +20,12 @@ const COLOR_OPTIONS = [
 const Admin = () => {
   const { menuItems, updateMenuItem, addMenuItem, deleteMenuItem, systemPrompt, updateSystemPrompt, orders, ingredients, authUser, logout } = useAppStore();
   
-  // Tabs
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'MENU' | 'AI' | 'SYSTEM'>('DASHBOARD');
+  // Tabs (INTEGRATIONS opens directly from the Google OAuth callback URL)
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'MENU' | 'AI' | 'SYSTEM' | 'INTEGRATIONS'>(
+    () => (searchParams.get('tab') === 'INTEGRATIONS' ? 'INTEGRATIONS' : 'DASHBOARD'),
+  );
+  const gcalConnected = searchParams.get('gcal') === 'connected';
   
   // Forms
   const [editItem, setEditItem] = useState<Partial<MenuItem> | null>(null);
@@ -98,7 +103,7 @@ const Admin = () => {
            </p>
         </div>
         <div className="flex gap-2 mt-4 md:mt-0">
-           {['DASHBOARD', 'MENU', 'AI', 'SYSTEM'].map(tab => (
+           {['DASHBOARD', 'MENU', 'AI', 'INTEGRATIONS', 'SYSTEM'].map(tab => (
              <button
                key={tab}
                onClick={() => setActiveTab(tab as any)}
@@ -380,6 +385,11 @@ const Admin = () => {
           </div>
         )}
 
+        {/* INTEGRATIONS TAB */}
+        {activeTab === 'INTEGRATIONS' && (
+          <IntegrationsTab gcalConnected={gcalConnected} />
+        )}
+
         {/* SYSTEM TAB */}
         {activeTab === 'SYSTEM' && (
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm animate-fade-in">
@@ -400,6 +410,114 @@ const Admin = () => {
              </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Integrations tab — live service status + Google Calendar connection
+// ---------------------------------------------------------------------------
+
+interface IntegrationInfo {
+  key: string;
+  label: string;
+  configured: boolean;
+  note?: string;
+}
+
+const IntegrationsTab = ({ gcalConnected }: { gcalConnected: boolean }) => {
+  const [integrations, setIntegrations] = useState<IntegrationInfo[]>([]);
+  const [gcal, setGcal] = useState<{ configured: boolean; connected: boolean } | null>(null);
+
+  const load = () => {
+    api.get<IntegrationInfo[]>('/integrations').then(setIntegrations).catch(() => setIntegrations([]));
+    api.get<{ configured: boolean; connected: boolean }>('/integrations/google-calendar')
+      .then(setGcal).catch(() => setGcal(null));
+  };
+
+  useEffect(load, []);
+
+  const connect = async () => {
+    try {
+      const { url } = await api.get<{ url: string }>('/integrations/google-calendar/authorize');
+      window.open(url, 'gcal-auth', 'width=520,height=680');
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
+
+  const disconnect = async () => {
+    try {
+      await api.post('/integrations/google-calendar/disconnect');
+      load();
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {gcalConnected && (
+        <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl flex items-center gap-2 font-bold">
+          <Check size={16} /> Google Calendar connected — reservations will sync to your calendar.
+        </div>
+      )}
+
+      {/* Google Calendar card */}
+      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-3 bg-shift-blue/10 text-shift-blue rounded-lg">
+              <Calendar size={22} />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg">Google Calendar</h3>
+              <p className="text-sm text-gray-500 max-w-md">
+                Confirmed reservations appear in your primary calendar; cancellations remove them.
+                You'll also get a conflict warning when booking over an existing calendar commitment.
+              </p>
+            </div>
+          </div>
+          {gcal?.connected ? (
+            <button onClick={disconnect} className="px-4 py-2 border-2 border-red-300 text-red-600 font-bold rounded-lg hover:bg-red-50 text-sm whitespace-nowrap">
+              Disconnect
+            </button>
+          ) : (
+            <button
+              onClick={connect}
+              disabled={!gcal?.configured}
+              className="px-4 py-2 bg-shift-blue text-white font-bold rounded-lg hover:bg-blue-700 text-sm flex items-center gap-2 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ExternalLink size={14} /> Connect
+            </button>
+          )}
+        </div>
+        {gcal && !gcal.configured && (
+          <p className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            Server needs GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and PUBLIC_BASE_URL set in .env (see .env.example).
+          </p>
+        )}
+      </div>
+
+      {/* Status list */}
+      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+        <h3 className="font-bold text-lg mb-1 flex items-center gap-2"><Plug size={18} /> Service Status</h3>
+        <p className="text-sm text-gray-500 mb-4">Key-gated: every service switches on when its credentials are set.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {integrations.map((i) => (
+            <div key={i.key} className="flex items-center justify-between border border-gray-100 rounded-lg px-4 py-3">
+              <div>
+                <p className="font-bold text-sm">{i.label}</p>
+                {i.note && <p className="text-[11px] text-gray-400 mt-0.5">{i.note}</p>}
+              </div>
+              <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${i.configured ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                {i.configured ? 'CONFIGURED' : 'OFF'}
+              </span>
+            </div>
+          ))}
+          {integrations.length === 0 && <p className="text-gray-400 text-sm">API unreachable.</p>}
+        </div>
       </div>
     </div>
   );

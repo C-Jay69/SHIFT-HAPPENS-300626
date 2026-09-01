@@ -5,6 +5,36 @@ import { requireAuth, currentUser } from '../middleware/auth.js';
 import { ApiError } from '../middleware/error.js';
 import { smartReservation } from '../lib/reservation.js';
 import { notifyReservationConfirmed, notifyWaitlistAdded } from '../lib/notify.js';
+import {
+  createReservationEvent,
+  deleteReservationEvent,
+  getBusyRanges,
+} from '../lib/googleCalendar.js';
+
+/** Which users have a connected Google Calendar (for calendar sync decisions). */
+async function userHasCalendar(userId: string | null): Promise<boolean> {
+  if (!userId) return false;
+  const { rows } = await pool.query(
+    `SELECT 1 FROM service_credentials WHERE user_id = $1 AND service = 'google_calendar' LIMIT 1`,
+    [userId],
+  );
+  return rows.length > 0;
+}
+
+/** True when any busy range on the calendar overlaps the requested 2h slot.
+ *  Google freeBusy returns RFC3339 ("YYYY-MM-DDTHH:MM:SS±HH:MM"); the slot is "HH:MM".
+ *  (Wall-clock comparison only — accurate enough for a warning, not a source of truth.) */
+function slotOverlapsBusy(busy: { start: string; end: string }[] | null, timeSlot: string): boolean {
+  if (!busy) return false;
+  const toMin = (t: string) => {
+    const hm = t.length >= 16 && t[10] === 'T' ? t.slice(11, 16) : t.slice(0, 5);
+    const [h, m] = hm.split(':').map(Number);
+    return h * 60 + (m ?? 0);
+  };
+  const start = toMin(timeSlot);
+  const end = start + 120;
+  return busy.some((b) => toMin(b.start) < end && toMin(b.end) > start);
+}
 
 const router = Router();
 router.use(requireAuth);
@@ -63,11 +93,20 @@ router.get('/waitlist', async (_req, res, next) => {
 });
 
 router.post('/', async (req, res, next) => {
+  const body = createSchema.parse(req.body);
+  const user = currentUser(req);
+
+  // Pull conflicts (best-effort): if the booking user's Google Calendar is
+  // busy around the requested slot, warn — but never block the booking.
+  let calendarConflict: boolean | null = null;
+  if (await userHasCalendar(user.id)) {
+    const busy = await getBusyRanges(user.id, body.date);
+    if (busy) calendarConflict = slotOverlapsBusy(busy, body.timeSlot);
+  }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const body = createSchema.parse(req.body);
-    const user = currentUser(req);
 
     const result = await smartReservation(client, {
       ...body,
@@ -78,6 +117,39 @@ router.post('/', async (req, res, next) => {
     await client.query('COMMIT');
 
     if (result.reservation) {
+      // Push to the booking user's Google Calendar (fire-and-forget).
+      if (await userHasCalendar(user.id)) {
+        const r = result.reservation as { id: string };
+        void (async () => {
+          try {
+            const { rows: g } = await pool.query(
+              `SELECT g.first_name || ' ' || COALESCE(g.last_name, '') AS name, r.party_size,
+                      r.date, r.time_slot, t.name AS table_name
+                 FROM reservations r
+                 JOIN guests g ON g.id = r.guest_id
+                 LEFT JOIN tables t ON t.id = r.table_id
+                WHERE r.id = $1`,
+              [r.id],
+            );
+            const { rows: rest } = await pool.query('SELECT name FROM restaurants LIMIT 1');
+            const row = g[0];
+            if (row) {
+              await createReservationEvent({
+                userId: user.id,
+                reservationId: r.id,
+                guestName: String(row.name || 'Guest').trim(),
+                partySize: Number(row.party_size),
+                date: String(row.date).slice(0, 10),
+                timeSlot: String(row.time_slot).slice(0, 5),
+                tableName: row.table_name ?? null,
+                restaurantName: rest[0]?.name ?? 'Restaurant',
+              });
+            }
+          } catch (err) {
+            console.warn('[reservations] Google Calendar sync failed:', err);
+          }
+        })();
+      }
       // Fire-and-forget confirmations (Smart Reservation steps 2c/2d):
       // Twilio SMS + SendGrid email, both key-gated so they no-op until
       // credentials are configured. Never blocks or fails the booking.
@@ -108,7 +180,7 @@ router.post('/', async (req, res, next) => {
           console.error('[reservations] Confirmation notification failed:', err);
         }
       })();
-      return res.status(201).json(result);
+      return res.status(201).json({ ...result, calendarConflict: calendarConflict ?? undefined });
     }
 
     // Waitlisted (step 3): acknowledge by SMS when we have a number to reach.
@@ -139,7 +211,7 @@ router.post('/', async (req, res, next) => {
         console.error('[reservations] Waitlist notification failed:', err);
       }
     })();
-    return res.status(202).json(result);
+    return res.status(202).json({ ...result, calendarConflict: calendarConflict ?? undefined });
   } catch (e) {
     await client.query('ROLLBACK');
     next(e);
@@ -171,6 +243,20 @@ router.patch('/:id', async (req, res, next) => {
           WHERE id = $1 AND status = 'reserved'`,
         [r.table_id],
       );
+      // Remove the linked Google Calendar event (cancellation / no-show).
+      if (r.google_event_id && r.created_by) {
+        const eventId = r.google_event_id;
+        const userId = r.created_by;
+        void (async () => {
+          try {
+            if (await userHasCalendar(userId)) {
+              await deleteReservationEvent(userId, eventId);
+            }
+          } catch (err) {
+            console.warn('[reservations] Calendar event removal failed:', err);
+          }
+        })();
+      }
     }
     res.json(rows[0]);
   } catch (e) {

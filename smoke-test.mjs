@@ -159,6 +159,7 @@ console.log('\n[8] Smart reservation flow (book + waitlist)');
 const book1 = await req('POST', '/api/v1/reservations', { token: admin, body: { firstName: 'Res', lastName: 'A', phone: '+15552220001', partySize: 2, date: today, timeSlot: '12:30', source: 'web' } });
 check('book party of 2 @12:30 → 201 confirmed', book1.status === 201 && !!book1.data.reservation, 'got ' + book1.status);
 check('reservation linked to a table', !!book1.data.reservation?.table_id, JSON.stringify(book1.data.reservation).slice(0, 120));
+check('no calendarConflict field when calendar not connected', !('calendarConflict' in book1.data), JSON.stringify(Object.keys(book1.data)));
 const bookFull = await req('POST', '/api/v1/reservations', { token: admin, body: { firstName: 'Big', lastName: 'Party', phone: '+15552220002', partySize: 12, date: today, timeSlot: '12:30', source: 'web' } });
 check('party of 12 → 202 waitlisted (no table big enough)', bookFull.status === 202 && !!bookFull.data.waitlistPosition, 'got ' + bookFull.status + ' ' + JSON.stringify(bookFull.data));
 const wl = await req('GET', '/api/v1/reservations/waitlist', { token: admin });
@@ -220,11 +221,42 @@ const accept = await req('POST', `/api/v1/events/proposals/${prop.data.id}/accep
 check('accept proposal → contract chain', accept.status === 201 || accept.status === 200, 'got ' + accept.status + ' ' + JSON.stringify(accept.data).slice(0, 120));
 const contracts = await req('GET', '/api/v1/events/contracts', { token: admin });
 check('contracts listed', contracts.status === 200 && contracts.data.length >= 1, 'got ' + contracts.data?.length);
+const firstContract = contracts.data[0];
+check('contract row exposes DocuSign fields (null when unconfigured)',
+  firstContract && 'docusign_envelope_id' in firstContract && 'docusign_status' in firstContract
+  && firstContract.docusign_status === null && firstContract.docusign_envelope_id === null,
+  JSON.stringify(firstContract).slice(0, 160));
+check('deposit = 20% of total', Math.abs(Number(firstContract.deposit_amount) - 0.2 * Number(firstContract.total_amount)) < 0.001,
+  'deposit=' + firstContract?.deposit_amount + ' total=' + firstContract?.total_amount);
+const depositPaid = await req('POST', `/api/v1/events/contracts/${firstContract.id}/deposit-paid`, { token: admin, body: {} });
+check('mark deposit paid → deposit_paid true', depositPaid.status === 200 && depositPaid.data.deposit_paid === true, JSON.stringify(depositPaid.data).slice(0, 120));
 
 console.log('\n[13] Integrations + realtime socket');
 const integ = await req('GET', '/api/v1/integrations', { token: admin });
 const keys = Object.fromEntries((integ.data ?? []).map(i => [i.key, i.configured]));
-check('integrations status: stripe/twilio/sendgrid off, llm off', integ.status === 200 && keys.stripe === false && keys.twilio_voice === false && keys.sendgrid === false && keys.llm === false, JSON.stringify(keys));
+check('integrations status: all key-gated services off',
+  integ.status === 200 && keys.stripe === false && keys.twilio_voice === false && keys.sendgrid === false
+  && keys.llm === false && keys.google_calendar === false && keys.docusign === false && keys.yelp === false,
+  JSON.stringify(keys));
+
+// --- Google Calendar (unconfigured path) ---
+const gcalStatus = await req('GET', '/api/v1/integrations/google-calendar', { token: admin });
+check('google-calendar status → {configured:false, connected:false}', gcalStatus.status === 200 && gcalStatus.data.configured === false && gcalStatus.data.connected === false, JSON.stringify(gcalStatus.data));
+const gcalAuth = await req('GET', '/api/v1/integrations/google-calendar/authorize', { token: admin });
+check('google-calendar authorize (unconfigured) → 503', gcalAuth.status === 503, 'got ' + gcalAuth.status);
+const gcalDisconnect = await req('POST', '/api/v1/integrations/google-calendar/disconnect', { token: admin, body: {} });
+check('google-calendar disconnect (no-op) → 200', gcalDisconnect.status === 200 && gcalDisconnect.data.disconnected === true, JSON.stringify(gcalDisconnect.data));
+
+// --- DocuSign (unconfigured path) ---
+const dsignSend = await req('POST', `/api/v1/events/contracts/${firstContract.id}/send-docusign`, { token: admin, body: {} });
+check('send-docusign (unconfigured) → 503', dsignSend.status === 503, 'got ' + dsignSend.status);
+const dsignRefresh = await req('POST', `/api/v1/events/contracts/${firstContract.id}/refresh-docusign`, { token: admin, body: {} });
+check('refresh-docusign (unconfigured) → 503', dsignRefresh.status === 503, 'got ' + dsignRefresh.status);
+
+// --- Yelp (unconfigured path) ---
+const yelpReviews = await req('GET', '/api/v1/integrations/yelp/reviews', { token: admin });
+check('yelp reviews (unconfigured) → 503', yelpReviews.status === 503, 'got ' + yelpReviews.status);
+
 const socketPing = await fetch(BASE + '/socket.io/?EIO=4&transport=polling');
 check('socket.io endpoint reachable', socketPing.status === 200);
 
