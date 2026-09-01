@@ -16,6 +16,11 @@ export interface BookingRequest {
   notes?: string;
   createdBy: string | null;
   restaurantId: string | null;
+  /**
+   * When true (used by the waitlist cron) an unavailable slot is reported
+   * without inserting a new waitlist row — the entry is already on the list.
+   */
+  skipWaitlist?: boolean;
 }
 
 export type BookingResult =
@@ -26,7 +31,7 @@ export type BookingResult =
     }
   | {
       reservation: null;
-      waitlistPosition: number;
+      waitlistPosition: number | null;
       estimatedWaitMinutes: number;
     };
 
@@ -103,7 +108,15 @@ export async function smartReservation(
     };
   }
 
-  // 3b. Add to waitlist
+  // 3b. Add to waitlist (skipped when the caller is the waitlist cron itself).
+  if (body.skipWaitlist) {
+    return {
+      reservation: null,
+      waitlistPosition: null,
+      estimatedWaitMinutes: 30,
+    };
+  }
+
   const pos = await client.query(
     `INSERT INTO waitlist (guest_id, party_size, requested_date, requested_time)
      VALUES ($1, $2, $3, $4) RETURNING id`,

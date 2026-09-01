@@ -333,8 +333,13 @@ CREATE TABLE orders (
   tax         NUMERIC(10,2) NOT NULL DEFAULT 0,
   tip         NUMERIC(10,2) NOT NULL DEFAULT 0,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   closed_at   TIMESTAMPTZ
 );
+
+-- Idempotent upgrade path: databases created before orders.updated_at existed
+-- gain the column on the next `npm run migrate` without a full --reset.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 
 CREATE INDEX idx_orders_status     ON orders(status);
 CREATE INDEX idx_orders_table_id   ON orders(table_id);

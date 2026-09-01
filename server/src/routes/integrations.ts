@@ -13,7 +13,6 @@ interface IntegrationStatus {
 }
 
 router.get('/', async (_req, res, _next) => {
-  const all = !!(process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY);
   const status: IntegrationStatus[] = [
     {
       key: 'stripe',
@@ -30,12 +29,16 @@ router.get('/', async (_req, res, _next) => {
     {
       key: 'twilio_sms',
       label: 'Twilio SMS (Notifs)',
-      configured: Boolean(process.env.TWILIO_PHONE_NUMBER && process.env.TWILIO_AUTH_TOKEN),
+      configured: Boolean(
+        process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER,
+      ),
+      note: 'Sends reservation confirmations + waitlist alerts',
     },
     {
       key: 'sendgrid',
       label: 'SendGrid (Email)',
       configured: Boolean(process.env.SENDGRID_API_KEY),
+      note: 'Sends reservation + waitlist email confirmations',
     },
     {
       key: 'google_calendar',
@@ -49,9 +52,11 @@ router.get('/', async (_req, res, _next) => {
     },
     {
       key: 'llm',
-      label: 'LLM (ShiftBot / Voice AI)',
-      configured: all,
-      note: all ? 'OpenRouter or Gemini key present' : 'Set OPENROUTER_API_KEY or GEMINI_API_KEY',
+      label: 'LLM (ShiftBot / Voice AI / RAG)',
+      configured: Boolean(process.env.OPENROUTER_API_KEY),
+      note: process.env.OPENROUTER_API_KEY
+        ? `Model: ${process.env.OPENROUTER_MODEL ?? 'openai/gpt-4o-mini'}`
+        : 'Set OPENROUTER_API_KEY (any OpenAI-compatible endpoint)',
     },
     {
       key: 'maps',

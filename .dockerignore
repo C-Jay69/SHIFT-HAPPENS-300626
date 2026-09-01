@@ -1,0 +1,30 @@
+# Keep the Docker image lean: only the runtime app is built into the image.
+.git
+.gitignore
+.github
+node_modules
+server/node_modules
+dist
+server/dist
+*.log
+npm-debug.log*
+
+# Feature references / vendored projects (not part of the build)
+laravel-restaurant-main
+tastyigniter-setup-4.0.0
+NEST.tar
+
+# Leftover template packages (not referenced by the root app)
+packages
+.runable
+turbo.json
+
+# Docs & design assets (readme images etc.)
+docs
+design.md
+*.md
+
+# Environment files are injected at runtime, never baked in
+.env
+.env.*
+!.env.example

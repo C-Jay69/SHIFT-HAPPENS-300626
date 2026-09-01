@@ -124,6 +124,7 @@ try {
   await client.query('BEGIN');
   try {
     // Clear any previously seeded demo data (single-restaurant demo app).
+    await client.query('DELETE FROM waitlist');
     await client.query('DELETE FROM reservations');
     await client.query('DELETE FROM guests');
     await client.query('DELETE FROM event_contracts');

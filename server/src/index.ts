@@ -7,6 +7,7 @@ import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { stripeWebhookHandler, paymentIntentRouter } from './lib/stripe.js';
 import { initRealtime } from './lib/realtime.js';
+import { startWaitlistCron } from './lib/waitlist.js';
 import { authRouter } from './routes/auth.js';
 import { guestsRouter } from './routes/guests.js';
 import { reservationsRouter } from './routes/reservations.js';
@@ -63,6 +64,7 @@ app.use(errorHandler);
 const PORT = Number(process.env.PORT ?? 4000);
 const server = createServer(app);
 initRealtime(server);
+startWaitlistCron();
 
 server.listen(PORT, () => {
   console.log(`🚀 SHIFT HAPPENS! API listening on http://0.0.0.0:${PORT}`);

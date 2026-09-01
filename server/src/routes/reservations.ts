@@ -4,6 +4,7 @@ import { pool } from '../db.js';
 import { requireAuth, currentUser } from '../middleware/auth.js';
 import { ApiError } from '../middleware/error.js';
 import { smartReservation } from '../lib/reservation.js';
+import { notifyReservationConfirmed, notifyWaitlistAdded } from '../lib/notify.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -75,9 +76,69 @@ router.post('/', async (req, res, next) => {
     });
 
     await client.query('COMMIT');
+
     if (result.reservation) {
+      // Fire-and-forget confirmations (Smart Reservation steps 2c/2d):
+      // Twilio SMS + SendGrid email, both key-gated so they no-op until
+      // credentials are configured. Never blocks or fails the booking.
+      const reservationId = (result.reservation as { id: string }).id;
+      void (async () => {
+        try {
+          const { rows } = await pool.query(
+            `SELECT g.first_name, g.last_name, g.phone, g.email, t.name AS table_name
+               FROM reservations r
+               JOIN guests g ON g.id = r.guest_id
+               LEFT JOIN tables t ON t.id = r.table_id
+              WHERE r.id = $1`,
+            [reservationId],
+          );
+          const g = rows[0];
+          if (g) {
+            await notifyReservationConfirmed(
+              { firstName: g.first_name, lastName: g.last_name, phone: g.phone, email: g.email },
+              {
+                date: body.date,
+                timeSlot: body.timeSlot,
+                tableName: g.table_name ?? null,
+                partySize: body.partySize,
+              },
+            );
+          }
+        } catch (err) {
+          console.error('[reservations] Confirmation notification failed:', err);
+        }
+      })();
       return res.status(201).json(result);
     }
+
+    // Waitlisted (step 3): acknowledge by SMS when we have a number to reach.
+    void (async () => {
+      try {
+        let firstName = body.firstName ?? 'Guest';
+        let lastName = body.lastName ?? '';
+        let phone = body.phone ?? null;
+        if (body.guestId && !body.phone) {
+          const { rows } = await pool.query(
+            'SELECT first_name, last_name, phone FROM guests WHERE id = $1',
+            [body.guestId],
+          );
+          if (rows[0]) {
+            firstName = rows[0].first_name;
+            lastName = rows[0].last_name ?? '';
+            phone = rows[0].phone;
+          }
+        }
+        if (phone) {
+          await notifyWaitlistAdded(
+            { firstName, lastName, phone },
+            { date: body.date, timeSlot: body.timeSlot, partySize: body.partySize },
+            result.waitlistPosition ?? 1,
+          );
+        }
+      } catch (err) {
+        console.error('[reservations] Waitlist notification failed:', err);
+      }
+    })();
     return res.status(202).json(result);
   } catch (e) {
     await client.query('ROLLBACK');
