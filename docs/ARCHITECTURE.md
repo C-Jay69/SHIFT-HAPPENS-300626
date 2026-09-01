@@ -8,10 +8,7 @@
 > payments, real-time KDS, staff scheduling, events/catering, reservation
 > confirmations (Twilio SMS + SendGrid), and an in-process waitlist cron are
 > implemented. `db/schema.sql` applies with or without the `pgvector`
-> extension (vector RAG degrades to keyword search when it's absent). The
-> `laravel-restaurant-main/` and `tastyigniter-setup-4.0.0/` directories are
-> feature references only and are excluded from the build (and from the Docker
-> image via `.dockerignore`).
+> extension (vector RAG degrades to keyword search when it's absent).
 
 ---
 
@@ -45,8 +42,7 @@ SHIFT-HAPPENS-300626/
 ├── ecosystem.config.cjs    # PM2 (single API process, cwd repo root)
 ├── smoke-test.mjs          # End-to-end API + workflow test (resets + reseeds first)
 ├── .env.example            # All env vars the server reads
-├── .dockerignore           # Keeps reference dirs / node_modules out of the image
-└── laravel-restaurant-main/  # FEATURE REFERENCE ONLY (excluded from build)
+└── .dockerignore           # Keeps node_modules / docs out of the image
 ```
 
 ## 2. API Surface

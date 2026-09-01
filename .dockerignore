@@ -9,17 +9,7 @@ server/dist
 *.log
 npm-debug.log*
 
-# Feature references / vendored projects (not part of the build)
-laravel-restaurant-main
-tastyigniter-setup-4.0.0
-NEST.tar
-
-# Leftover template packages (not referenced by the root app)
-packages
-.runable
-turbo.json
-
-# Docs & design assets (readme images etc.)
+# Docs & design assets
 docs
 design.md
 *.md
@@ -28,3 +18,6 @@ design.md
 .env
 .env.*
 !.env.example
+
+# Test tooling / platform files not needed at runtime
+smoke-test.mjs

@@ -88,8 +88,6 @@ db/schema.sql                    complete PostgreSQL schema (all entity groups)
 server/                          Express API: routes · lib · middleware · seed
 smoke-test.mjs                   end-to-end verification suite
 docs/ARCHITECTURE.md             architecture, API surface, deployment checklist
-laravel-restaurant-main/         FEATURE REFERENCE ONLY — not part of the build
-tastyigniter-setup-4.0.0/        FEATURE REFERENCE ONLY — not part of the build
 ```
 
 ## Security notes

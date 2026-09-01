@@ -15,10 +15,7 @@
     "react/react-in-jsx-scope": "off"
   },
   "ignorePatterns": [
-    "dist/**",
-    "dist-electron/**",
-    ".expo/**",
-    "packages/web/public/runable.js"
+    "dist/**"
   ],
   "env": {
     "builtin": true,
